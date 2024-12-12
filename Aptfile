@@ -1,5 +1,2 @@
 unixodbc
-odbc-mssql
-
-
-
+msodbcsql18
