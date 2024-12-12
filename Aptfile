@@ -1,3 +1,4 @@
 unixodbc
 curl
 gnupg
+./install_odbc.sh
