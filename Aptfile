@@ -1,3 +1,2 @@
-unixodbc
-curl
-gnupg
+unixodbc-dev
+msodbcsql17
