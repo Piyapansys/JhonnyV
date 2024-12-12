@@ -1,22 +1,18 @@
+import os
+from dotenv import load_dotenv
+
+# โหลดค่าจากไฟล์ .env
+load_dotenv()
+
+# ดึงค่า environment variables ที่เก็บใน .env
+server = os.getenv('DB_SERVER')
+database = os.getenv('DB_DATABASE')
+username = os.getenv('DB_USERNAME')
+password = os.getenv('DB_PASSWORD')
+
 class Config:
+    # ฟอร์แมต string ด้วย f-string เพื่อใส่ตัวแปรเข้าไปใน URL
     SQLALCHEMY_DATABASE_URI = (
-        'mssql+pyodbc://administratorsys:DxIT$y$2023@siamyamato.database.windows.net:1433/thoth_datawarehouse?driver=ODBC+Driver+17+for+SQL+Server'
+        f'mssql+pyodbc://{username}:{password}@{server}/{database}?driver=ODBC+Driver+17+for+SQL+Server'
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-
-# class Config:
-#     SQLALCHEMY_TRACK_MODIFICATIONS = False
-
-#     # ODBC connection string for Azure SQL Database
-#     DRIVER = "{ODBC Driver 18 for SQL Server}"
-#     SERVER = "siamyamato.database.windows.net"
-#     DATABASE = "thoth_datawarehouse"
-#     UID = "administratorsys"
-#     PWD = "DxIT$y$2023"
-#     ENCRYPT = "yes"
-#     TrustServerCertificate = "no"
-#     TIMEOUT = 30
-#     # SQLAlchemy Database URI
-#     SQLALCHEMY_DATABASE_URI = (
-#         f"mssql+pyodbc://{UID}:{PWD}@{SERVER}/{DATABASE}?driver={DRIVER}&Encrypt={ENCRYPT}&TrustServerCertificate={TrustServerCertificate}&timeout={TIMEOUT}"
-#     )
