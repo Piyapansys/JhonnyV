@@ -40,6 +40,7 @@ class DocResource(Resource):
                 return {"message": "Box, BoxAction, UserEmail are required"}, 400
             return update_box_status(data)
 
+
 doc_api = Namespace('api/docs', description='Doc operations')
 
 # Model สำหรับ Document
