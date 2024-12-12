@@ -1,2 +1,6 @@
 unixodbc-dev
-msodbcsql17
+curl
+# Microsoft ODBC Driver
+https://packages.microsoft.com/keys/microsoft.asc
+https://packages.microsoft.com/mssql-server-2017/repo
+msodbcsql18
