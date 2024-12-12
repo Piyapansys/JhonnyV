@@ -1,6 +1,6 @@
 class Config:
     SQLALCHEMY_DATABASE_URI = (
-        'mssql+pyodbc://administratorsys:DxIT$y$2023@tcp:siamyamato.database.windows.net,1433/thoth_datawarehouse?driver=ODBC+Driver+18+for+SQL+Server'
+        'mssql+pyodbc://administratorsys:DxIT$y$2023@siamyamato.database.windows.net:1433/thoth_datawarehouse?driver=ODBC+Driver+18+for+SQL+Server'
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
