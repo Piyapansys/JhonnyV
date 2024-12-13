@@ -13,6 +13,6 @@ password = os.getenv('DB_PASSWORD')
 class Config:
     # ฟอร์แมต string ด้วย f-string เพื่อใส่ตัวแปรเข้าไปใน URL
     SQLALCHEMY_DATABASE_URI = (
-        f'mssql+pyodbc://{username}:{password}@{server}/{database}?driver=ODBC+Driver+17+for+SQL+Server'
+        f'mssql+pymssql://{username}:{password}@{server}/{database}'
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
