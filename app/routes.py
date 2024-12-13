@@ -42,6 +42,7 @@ class BoxStatusResource(Resource):
             return update_box_status(data)
 
 
+
 doc_api = Namespace('api/docs', description='Doc operations')
 
 # Model สำหรับ Document
