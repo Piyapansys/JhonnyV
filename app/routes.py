@@ -1,4 +1,5 @@
-from flask import request
+from http.client import HTTPException
+from flask import jsonify, request
 from flask_restx import Namespace, Resource, fields
 from app.controllers import create_box ,store_doc,remove_doc,update_box_status
 
@@ -26,10 +27,14 @@ class BoxCreateResource(Resource):
     @box_api.expect(create_box_model)
     def post(self):
             """Create a new box"""
-            data = request.json
-            if 'box_year' not in data or 'box_type' not in data or 'user_email' not in data:
-                return {"message": "box_year, box_type and user_email are required"}, 400
-            return create_box(data)
+            try:
+                data = request.json
+                if 'box_year' not in data or 'box_type' not in data or 'user_email' not in data:
+                    return {"message": "box_year, box_type and user_email are required"}, 400
+                return create_box(data)
+            except Exception as e:
+                # หากเกิดข้อผิดพลาดใด ๆ ในกระบวนการ
+                return {"message": f"An error occurred: {str(e)}"}, 500
     
 @box_api.route('/update-status')
 class BoxStatusResource(Resource):
@@ -41,7 +46,12 @@ class BoxStatusResource(Resource):
                 return {"message": "Box, BoxAction, UserEmail are required"}, 400
             return update_box_status(data)
 
-
+@box_api.errorhandler(HTTPException)
+class ErrorResponse(Resource):
+    def handle_http_exception(error):
+        return jsonify({
+            "message": error.description
+        }), error.code
 
 doc_api = Namespace('api/docs', description='Doc operations')
 
