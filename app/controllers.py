@@ -1,212 +1,366 @@
 from datetime import datetime
 from uuid import uuid4
-from app.models import DocfinderBox,DocfinderDoc,DocInBox
-from app.__init__ import db
+from flask import json, jsonify, logging
+from app.models import JohnnyBox, JohnnyDoc, DocInBox, Search
+from app.db import get_db_connection
+from app.config import Config
+import base64
+import re
 
-# สร้าง dictionary สำหรับ mapping box_type กับตัวเลข
-TYPE_MAPPING = {
-    "KY": 212,
-    "KZ": 211,
-    "SV": 701,
-    "DP": 311,
-    "RP": 65,
-    "RR": 69,
-    "DC": 302,
-    "TD": 713
-}
-
-def map_type_to_number(type):
-    if type in TYPE_MAPPING:
-        return TYPE_MAPPING[type]
-    else:
-        raise ValueError(f"Invalid type: {type}")
-
-def create_box(data):
-    # ดึงข้อมูลจาก JSON
-    box_type = data.get('box_type')
-    box_year = data.get('box_year')
-    create_amount = int(data.get('create_amount', 1))  # จำนวนกล่องที่ต้องสร้าง
-    user_email = data.get('user_email')
-
-    # ตรวจสอบข้อมูลที่จำเป็น
-    if not box_type or not box_year or not user_email:
-        return {"message": "Missing required fields"}, 400
-    
-    # แปลง box_type เป็นหมายเลข
-    try:
-        box_type = map_type_to_number(data['box_type'])
-    except ValueError as e:
-        return {"message": str(e)}, 400  # ส่งข้อความ error กลับถ้า box_type ไม่ถูกต้อง
-    
-    created_boxes = []
-    for i in range(create_amount):
-        # หา box_id และ box_number ถัดไป
-        box_id, next_box_number = DocfinderBox.get_next_box_id(box_year, box_type)
-
-        # สร้างอินสแตนซ์ของ `DocfinderBox` โดยเรียกใช้ `create_box`
-        new_box = DocfinderBox.create_box(box_year, box_type, user_email)
-        created_boxes.append(box_id)
-
-    # บันทึกลงฐานข้อมูล
-    db.session.commit()
-
-    # ส่งกลับรายการกล่องที่สร้าง
-    return {
-        "message": "Boxes created successfully",
-        "created_boxes": created_boxes
-    }
-
-def update_box_status(data):
-    # ดึงข้อมูลจาก JSON
-    boxs = data.get('Box')  # จำนวนกล่องที่ต้องสร้าง
-    box_action = data.get('BoxAction')
-    user_email = data.get('UserEmail')
-    
-    manage_Boxs = [i.get('ManageBoxNumber') for i in boxs]
-
-    # ตรวจสอบข้อมูลที่จำเป็น
-    if not manage_Boxs or not box_action or not user_email:
-        return {"message": "Missing required fields"}, 400
-
-    for box_number in manage_Boxs:
-        box_data = DocfinderBox.get_box_by_id(box_number)
-        if not box_data:
-            return {"message": "Box not found"}, 404
+class BoxController:
         
-        if box_action == "OPEN":
-            box_data.box_close = False
-        elif box_action == "CLOSE":
-            box_data.box_close = True
+    def create_box(data):
+        conn = get_db_connection()
+        if conn is None:
+            return {"message": "Failed to connect to the database"}, 500
 
-        box_data.update_at = datetime.now()
-        box_data.update_by = user_email
+        cursor = conn.cursor()
+        try:
+            box_type_code = data.get('box_type')  # ตอนนี้คาดว่าเป็นเลข เช่น "69", "212"
+            box_year = data.get('box_year')
+            create_amount = int(data.get('create_amount', 1))
+            user_email = data.get('user_email')
+            location = data.get('location')
 
-    db.session.commit()  # commit หลังจากเพิ่มข้อมูลทั้งหมด
+            if not box_type_code or not box_year or not user_email or not location:
+                return {"message": "Missing required fields"}, 400
 
-    # ส่งกลับรายการกล่องที่สร้าง
-    return {
-        "message": "Box status changed successfully",
-        "changed_boxs": manage_Boxs
-    }
+            # แปลง box_type_code เป็น string ความยาว 3 หลัก เช่น "69" → "069"
+            box_type = str(box_type_code).zfill(3)
 
-def store_doc(data):
-    # ดึงข้อมูลจาก JSON
-    box_id = data.get('BoxID')
-    doc_year = data.get('Document_Year')
-    doc_type = data.get('Document_Type')
-    documents = data.get('Documents')  # จำนวนกล่องที่ต้องสร้าง
-    user_email = data.get('UserEmail')
-    
-    manage_documents = [i.get('ManageDocument') for i in documents]
+            created_boxes = []
+            for _ in range(create_amount):
+                created_box = JohnnyBox.create_box(box_year, box_type, user_email, location)
+                created_boxes.append(created_box)
 
-    # ตรวจสอบข้อมูลที่จำเป็น
-    if not doc_type or not doc_year or not user_email:
-        return {"message": "Missing required fields"}, 400
+            return {"message": "Boxes created successfully", "created_boxes": created_boxes}, 201
 
-    if len(doc_year) != 4 or not doc_year.isdigit():
-        return {"message": "DocYear must be a 4-digit number"}, 400
-    
-    # แปลง box_type เป็นหมายเลข
-    doctype_id = map_type_to_number(doc_type)
-    if doctype_id is None:
-        return {"message": "Invalid document type"}, 400
+        except ValueError as e:
+            return {"message": str(e)}, 400
+        except Exception as e:
+            return {"message": f"An error occurred: {str(e)}"}, 500
+        finally:
+            cursor.close()
+            conn.close()
 
-    # ดึงข้อมูล Box ที่มี box_id ตรงกันจากฐานข้อมูล
-    box_data = DocfinderBox.get_box_by_id(box_id)
-    if not box_data:
-        return {"message": "Box not found"}, 404
+    def update_box_status(data):
+        boxes = data.get('box')
+        box_action = data.get('box_action')
+        user_email = data.get('user_email')
+        location = data.get('location')
 
-    # ตรวจสอบว่า doc_type และ doc_year ตรงกับข้อมูล box_type_id และ box_year หรือไม่
-    if box_data.boxtype_id != doctype_id:
-        return {"message": "Document type does not match with box type"}, 400
-    if box_data.box_year != doc_year:
-        return {"message": "Document year does not match with box year"}, 400
-    if box_data.box_close == 1:
-        return {"message": "กล่องนี้ถูกปิดไปแล้วจ้าาา รบกวนทำการเปิดกล่องแล้วทำรายการอีกครั้ง"}, 400
-    
-    created_docs = []
-    doc_in_box_objects = []  # สร้างรายการเพื่อเก็บ DocInBox ทั้งหมด
+        if not boxes or not box_action or not user_email:
+            return {"message": "Missing required fields"}, 400
 
-    for doc_number in manage_documents:
-        doc_id = f"{doc_year}{doc_number}"
-        # สร้าง `DocfinderDoc` โดยใช้ method ของ model
-        DocfinderDoc.create_doc(doc_year, doctype_id, doc_number, user_email,box_id)
-        created_docs.append(doc_id)
+        # manage_box_numbers = [box.get('ManageBoxNumber') for box in boxes]
 
-        # สร้าง `DocInBox` object เพื่อเพิ่มลงฐานข้อมูล
-        uuid_id = uuid4().hex
-        new_doc_in_box = DocInBox.create_docInBox(id=uuid_id, doc_id=doc_id, box_id=box_id)
-        doc_in_box_objects.append(new_doc_in_box)  # เก็บข้อมูลเพื่อ commit ทีเดียว
+        conn = get_db_connection()
+        if conn is None:
+            return {"message": "Failed to connect to the database"}, 500
 
-    # เพิ่มข้อมูลทั้งหมดลงฐานข้อมูลทีเดียว
-    db.session.add_all(doc_in_box_objects)
-    box_data.box_close = True  # สมมติว่า box_close เป็นคอลัมน์ในตาราง DocfinderBox
-    box_data.update_at = datetime.now()
-    box_data.update_by = user_email
-    db.session.commit()  # commit หลังจากเพิ่มข้อมูลทั้งหมด
+        cursor = conn.cursor()
+        try:
+            for box_number in boxes:
+                box_data = JohnnyBox.get_box_by_id(box_number)
+                if not box_data:
+                    return {"message": f"Box with ID {box_number} not found"}, 404
+                JohnnyBox.update_box_status(box_action, user_email, box_number,location)
 
-    # ส่งกลับรายการกล่องที่สร้าง
-    return {
-        "message": "Docs stored successfully",
-        "stored_docs": created_docs,
-        "at_box": box_id
-    }
+            return {"message": "Box status changed successfully", "changed_boxes": boxes}, 200
 
-def remove_doc(data):
-    # ดึงข้อมูลจาก JSON
-    box_id = data.get('BoxID')
-    doc_year = data.get('Document_Year')
-    doc_type = data.get('Document_Type')
-    documents = data.get('Documents')  # จำนวนกล่องที่ต้องสร้าง
-    user_email = data.get('UserEmail')
-    
-    manage_documents = [i.get('ManageDocument') for i in documents]
+        except Exception as e:
+            return {"message": f"An error occurred: {str(e)}"}, 500
+        finally:
+            cursor.close()
+            conn.close()
 
-    # ตรวจสอบข้อมูลที่จำเป็น
-    if not doc_type or not doc_year or not user_email:
-        return {"message": "Missing required fields"}, 400
-
-    if len(doc_year) != 4 or not doc_year.isdigit():
-        return {"message": "DocYear must be a 4-digit number"}, 400
-
-    doctype_id = map_type_to_number(doc_type)
-    if doctype_id is None:
-        return {"message": "Invalid document type"}, 400
-    
-    # ดึงข้อมูล Box ที่มี box_id ตรงกันจากฐานข้อมูล
-    box_data = DocfinderBox.get_box_by_id(box_id)
-    if not box_data:
-        return {"message": "Box not found"}, 404
-
-    # ตรวจสอบว่า doc_type และ doc_year ตรงกับข้อมูล box_type_id และ box_year หรือไม่
-    if box_data.boxtype_id != doctype_id:
-        return {"message": "Document type does not match with box type"}, 400
-    if box_data.box_year != doc_year:
-        return {"message": "Document year does not match with box year"}, 400
-    if box_data.box_close == 1:
-        return {"message": "กล่องนี้ถูกปิดไปแล้วจ้าาา รบกวนทำการเปิดกล่องแล้วทำรายการอีกครั้ง"}, 400
-
-    for doc_number in manage_documents:
-        doc_id = f"{doc_year}{doc_number}"
-        # สร้าง `DocInBox` object เพื่อเพิ่มลงฐานข้อมูล
-        remove_record = DocInBox.remove_docInBox(doc_id=doc_id, box_id=box_id)
-        print(remove_record)
-        if not remove_record:
-            return {"message": "No matching record found to delete","OnDoc": doc_number,"OnBox": box_id }, 404
+    def get_box_types():
+        try:
+            boxtypes = JohnnyBox.get_box_types()
+            return {'data': boxtypes}, 200  # Return as a dictionary with status code
+        except Exception as e:
+            return {"error": str(e)}, 500
         
-        doc_data = DocfinderDoc.get_doc_by_id(doc_id)
-        if not doc_data:
-            return {"message": "Doc not found"}, 404
+    def create_box_types(data):
+        boxtype_id = data.get('boxtype_id')
+        boxtype_name = data.get('boxtype_name')
+        boxtype_shortname = data.get('boxtype_shortname')
+        try:
+            JohnnyBox.create_box_type(boxtype_id, boxtype_name, boxtype_shortname)
+            return {"message": "BoxType create successfully"}, 200  # Return as a dictionary with status code
+        except Exception as e:
+            return {"error": str(e)}, 500
+    
+    def update_box_types(data):
+        boxtype_id = data.get('boxtype_id')
+        boxtype_name = data.get('boxtype_name')
+        boxtype_shortname = data.get('boxtype_shortname')
+        try:
+            JohnnyBox.update_box_type(boxtype_id, boxtype_name, boxtype_shortname)
+            return {"message": "BoxType update successfully"}, 200  # Return as a dictionary with status code
+        except Exception as e:
+            return {"error": str(e)}, 500
         
-        doc_data.remove_at = datetime.now()
-        doc_data.remove_by = user_email
+    def delete_box_types(data):
+        boxtype_id = data.get('boxtype_id')
+        try:
+            JohnnyBox.delete_box_type(boxtype_id)
+            return {"message": "BoxType delete successfully"}, 200  # Return as a dictionary with status code
+        except Exception as e:
+            return {"error": str(e)}, 500
+        
+    def get_location():
+        try:
+            location = JohnnyBox.get_location()
+            return {'data': location}, 200  # Return as a dictionary with status code
+        except Exception as e:
+            return {"error": str(e)}, 500
 
-    box_data.box_close = True  # สมมติว่า box_close เป็นคอลัมน์ในตาราง DocfinderBox
-    box_data.update_at = datetime.now()
-    box_data.update_by = user_email
-    db.session.commit()
-    # ส่งกลับรายการกล่องที่สร้าง
-    return {
-        "message": "Docs removed successfully",
-        "at_docs": manage_documents
-    }
+class DocController:
+    def get_doc_detail():
+        try:
+            documents = JohnnyDoc.get_document_detail()
+            return {'data': documents}, 200  # Return as a dictionary with status code
+        except Exception as e:
+            return {"error": str(e)}, 500
+        
+    def get_all_document():
+        try:
+            documents = JohnnyDoc.get_all_document()
+            return {'data': documents}, 200  # Return as a dictionary with status code
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+    # def store_doc(data):
+    #     box_id = data.get('box_id')
+    #     # doc_year = data.get('document_year')
+    #     #doc_type = data.get('Document_Type')
+    #     documents = data.get('documents')
+    #     user_email = data.get('user_email')
+
+    #     if not box_id or not documents or not user_email:
+    #         return {"message": "Missing required fields"}, 400
+
+    #     try:
+    #         #doctype_id = doc_type_to_number(doc_type)
+
+    #         box_data = JohnnyBox.get_box_by_id(box_id)
+    #         if not box_data:
+    #             return {"message": "Box not found"}, 404
+    #         if box_data.box_close == 1:
+    #             return {"message": "This box is closed, please open it before proceeding"}, 400
+
+    #         created_docs = []
+    #         for doc in documents:
+    #             doc_year = doc[:4]
+
+    #             # 3 ตัวถัดไป
+    #             doc_type_raw = doc[4:7]
+
+    #             # เช็คตัวที่ 3 ของ doc_type_raw
+    #             if doc_type_raw[2] == "0":
+    #                 doctype_id = doc_type_raw[:2]
+    #             else:
+    #                 doctype_id = doc_type_raw
+
+    #             if  str(box_data.boxtype_id) != doctype_id:
+    #                 return {"message": "Document type does not match box type"}, 400
+                
+    #             if box_data.box_year != doc_year:
+    #                 return {"message": "Document year does not match box year"}, 400
+                
+    #             # doc_number = doc.get('ManageDocument')
+    #             # doc_id = f"{doc_year}{doc}"
+    #             created_doc = JohnnyDoc.create_doc(doc_year, doctype_id, doc[4:13], user_email)
+    #             created_docs.append(created_doc)
+
+    #             # Create a DocInBox entry
+    #             uuid_id = uuid4().hex
+    #             DocInBox.create_docInBox(uuid_id, doc, box_id)
+
+    #         # Close the box after storing documents
+    #         # JohnnyBox.update_box_status("CLOSE", user_email, box_id)
+
+    #         return {"message": "Documents stored successfully", "stored_docs": created_docs, "box_id": box_id}, 201
+
+    #     except Exception as e:
+    #         return {"message": f"An error occurred: {str(e)}"}, 500
+
+    def store_doc(data):
+        box_id = data.get('box_id')
+        documents = data.get('documents')
+        user_email = data.get('user_email')
+
+        if not box_id or not documents or not user_email:
+            return {"message": "Missing required fields"}, 400
+
+        try:
+            box_data = JohnnyBox.get_box_by_id(box_id)
+            if not box_data:
+                return {"message": "Box not found"}, 404
+
+            results = []  # เก็บผลลัพธ์ของเอกสารแต่ละตัว
+
+            for doc in documents:
+                try:
+                    doc_year = doc[:4]
+                    doc_type_raw = doc[4:7]
+
+                    if doc_type_raw[2] == "0":
+                        doctype_id = doc_type_raw[:2]
+                    else:
+                        doctype_id = doc_type_raw
+
+                    errors = []
+
+                    # ตรวจสอบ year
+                    if str(box_data.box_year) != doc_year:
+                        errors.append("ปีของเอกสารไม่ตรงกับปีของกล่อง")
+
+                    # ตรวจสอบ type
+                    if str(box_data.boxtype_id) != doctype_id:
+                        errors.append("ประเภทของเอกสารไม่ตรงกับประเภทของกล่อง")
+
+                    if errors:
+                        results.append({
+                            "doc": doc,
+                            "status": "error",
+                            "reasons": errors
+                        })
+                        continue
+
+                    # ผ่าน validation → บันทึก
+                    created_doc = JohnnyDoc.create_doc(doc_year, doctype_id, doc[4:13], user_email)
+                    uuid_id = uuid4().hex
+                    DocInBox.create_docInBox(uuid_id, doc, box_id)
+
+                    results.append({
+                        "doc": doc,
+                        "status": "success",
+                        "created_doc": created_doc
+                    })
+
+                except Exception as e:
+                    results.append({
+                        "doc": doc,
+                        "status": "error",
+                        "reasons": [str(e)]
+                    })
+
+
+            return {
+                "message": "Documents processed",
+                "results": results,
+                "box_id": box_id
+            }, 200
+
+        except Exception as e:
+            return {"message": f"An error occurred: {str(e)}"}, 500
+
+    def remove_docInBox(data):
+        box_id = data.get('box_id')
+        documents = data.get('documents')
+        user_email = data.get('user_email')
+
+        if not box_id or not documents or not user_email:
+            return {"message": "Missing required fields"}, 400
+
+        try:
+            box_data = JohnnyBox.get_box_by_id(box_id)
+            if not box_data:
+                return {"message": "Box not found"}, 404
+
+            results = []  # เก็บผลลัพธ์ของเอกสารแต่ละตัว
+
+            for doc in documents:
+                try:
+                    doc_year = doc[:4]
+                    doc_type_raw = doc[4:7]
+
+                    if doc_type_raw[2] == "0":
+                        doctype_id = doc_type_raw[:2]
+                    else:
+                        doctype_id = doc_type_raw
+
+                    errors = []
+
+                    # ตรวจสอบ year
+                    if str(box_data.box_year) != doc_year:
+                        errors.append("ปีของเอกสารไม่ตรงกับปีของกล่อง")
+
+                    # ตรวจสอบ type
+                    if str(box_data.boxtype_id) != doctype_id:
+                        errors.append("ประเภทของเอกสารไม่ตรงกับประเภทของกล่อง")
+
+                    if errors:
+                        results.append({
+                            "doc": doc,
+                            "status": "error",
+                            "reasons": errors
+                        })
+                        continue
+
+                    # ผ่าน validation → บันทึก
+                    removed_docs = DocInBox.remove_docInBox(doc, box_id, user_email)
+
+                    results.append({
+                        "doc": doc,
+                        "status": "success",
+                        "removed_doc": removed_docs
+                    })
+
+                except Exception as e:
+                    results.append({
+                        "doc": doc,
+                        "status": "error",
+                        "reasons": [str(e)]
+                    })
+            return {
+                "message": "Documents processed",
+                "results": results,
+                "box_id": box_id
+            }, 200
+
+        except Exception as e:
+            return {"message": f"An error occurred: {str(e)}"}, 500
+
+class SearchController:
+
+    # def search(data):
+    #     id = data.get('id')
+    #     year = data.get('year')
+    #     type = data.get('type')
+    #     location = data.get('location')
+    #     category = data.get('category')
+    #     try:
+    #         if category == "box":
+    #             res = Search.search_boxes(id, year, type, location)
+    #         elif category == "document":
+    #             res = Search.search_documents(id, year, type, location)
+    #         else:
+    #             return {"error": "Invalid category. Must be 'box' or 'document'."}, 400
+
+    #         return {'data': res}, 200
+    #     except Exception as e:
+    #         return {"error": str(e)}, 500
+    def search(data):
+        ids = data.get('id')  # อาจเป็น string หรือ list
+        year = data.get('year')
+        type = data.get('type')
+        location = data.get('location')
+        category = data.get('category')
+        try:
+            if category == "box":
+                res = Search.search_boxes(ids, year, type, location)
+            elif category == "document":
+                res = Search.search_documents(ids, year, type, location)
+            else:
+                return {"error": "Invalid category. Must be 'box' or 'document'."}, 400
+
+            return {'data': res}, 200
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+
+
+    
