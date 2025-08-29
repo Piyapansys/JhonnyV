@@ -81,30 +81,30 @@ class BoxController:
         except Exception as e:
             return {"error": str(e)}, 500
         
-    def create_box_types(data):
+    def create_box_doc_types(data):
         boxtype_id = data.get('boxtype_id')
         boxtype_name = data.get('boxtype_name')
         boxtype_shortname = data.get('boxtype_shortname')
         try:
-            JohnnyBox.create_box_type(boxtype_id, boxtype_name, boxtype_shortname)
+            JohnnyBox.create_box_doc_type(boxtype_id, boxtype_name, boxtype_shortname)
             return {"message": "BoxType create successfully"}, 200  # Return as a dictionary with status code
         except Exception as e:
             return {"error": str(e)}, 500
     
-    def update_box_types(data):
+    def update_box_doc_types(data):
         boxtype_id = data.get('boxtype_id')
         boxtype_name = data.get('boxtype_name')
         boxtype_shortname = data.get('boxtype_shortname')
         try:
-            JohnnyBox.update_box_type(boxtype_id, boxtype_name, boxtype_shortname)
+            JohnnyBox.update_box_doc_type(boxtype_id, boxtype_name, boxtype_shortname)
             return {"message": "BoxType update successfully"}, 200  # Return as a dictionary with status code
         except Exception as e:
             return {"error": str(e)}, 500
         
-    def delete_box_types(data):
+    def delete_box_doc_types(data):
         boxtype_id = data.get('boxtype_id')
         try:
-            JohnnyBox.delete_box_type(boxtype_id)
+            JohnnyBox.delete_box_doc_type(boxtype_id)
             return {"message": "BoxType delete successfully"}, 200  # Return as a dictionary with status code
         except Exception as e:
             return {"error": str(e)}, 500
@@ -237,7 +237,7 @@ class DocController:
                     results.append({
                         "doc": doc,
                         "status": "success",
-                        "created_doc": created_doc
+                        # "created_doc": created_doc
                     })
 
                 except Exception as e:
@@ -306,7 +306,7 @@ class DocController:
                     results.append({
                         "doc": doc,
                         "status": "success",
-                        "removed_doc": removed_docs
+                        # "removed_doc": removed_docs
                     })
 
                 except Exception as e:

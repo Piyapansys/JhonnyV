@@ -22,7 +22,7 @@ box_status_model = box_api.model('BoxStatusModel', {
     'box': fields.List(fields.String, required=True, description='List of boxes to update status'),
     'box_action': fields.String(required=True, description='Status to update'),
     'user_email': fields.String(required=True, description='User email'),
-    'location': fields.String(required=True, description='Box Location'),
+    'location': fields.Integer(required=True, description='Box Location'),
 })
 
 @box_api.route('/create_box')
@@ -71,7 +71,7 @@ class BoxTypesResource(Resource):
         """Create a new box type"""
         try:
             data = request.json
-            return BoxController.create_box_types(data)
+            return BoxController.create_box_doc_types(data)
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500
         
@@ -80,7 +80,7 @@ class BoxTypesResource(Resource):
         """Update box type"""
         try:
             data = request.json
-            return BoxController.update_box_types(data)
+            return BoxController.update_box_doc_types(data)
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500
 
@@ -93,7 +93,7 @@ class BoxTypesResource(Resource):
             data = {
                     'boxtype_id': request.args.get('boxtype_id'),
                 }
-            return BoxController.delete_box_types(data)
+            return BoxController.delete_box_doc_types(data)
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500
 
@@ -111,6 +111,14 @@ class BoxLocationResource(Resource):
         try:
             data = request.json
             return BoxController.create_box_location(data)
+        except Exception as e:
+            return {"message": f"An error occurred: {str(e)}"}, 500
+        
+    def put(self):
+        """Update box location"""
+        try:
+            data = request.json
+            return BoxController.update_box_location(data)
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500
     

@@ -62,21 +62,25 @@ class JohnnyBox:
             conn.close()
 
     @classmethod
-    def create_box_type(cls,boxtype_id, boxtype_name, boxtype_shortname):
+    def create_box_doc_type(cls,boxtype_id, boxtype_name, boxtype_shortname):
         conn = get_db_connection()
         cursor = conn.cursor()
         try:
             cursor.execute("""
                 INSERT INTO Johnny_boxType (boxtype_id, boxtype_name, boxtype_shortname, created_at)
                 VALUES (?, ?, ?, ?)
-            """, (boxtype_id, boxtype_name, boxtype_shortname, datetime.now()+ timedelta(hours=7)))
+            """, (boxtype_id, boxtype_name, boxtype_shortname, datetime.now()))
+            cursor.execute("""
+                INSERT INTO Johnny_docType (doctype_id, doctype_name, doctype_shortname, created_at)
+                VALUES (?, ?, ?, ?)
+            """, (boxtype_id, boxtype_name, boxtype_shortname, datetime.now()))
             conn.commit()
         finally:
             cursor.close()
             conn.close()
 
     @classmethod
-    def update_box_type(cls,boxtype_id, boxtype_name, boxtype_shortname):
+    def update_box_doc_type(cls,boxtype_id, boxtype_name, boxtype_shortname):
         conn = get_db_connection()
         cursor = conn.cursor()
         try:
@@ -84,19 +88,27 @@ class JohnnyBox:
                 UPDATE Johnny_boxType 
                     SET boxtype_name = ?, boxtype_shortname = ?, created_at = ? 
                     WHERE boxtype_id = ?
-            """, (boxtype_name, boxtype_shortname, datetime.now()+ timedelta(hours=7), boxtype_id))
+            """, (boxtype_name, boxtype_shortname, datetime.now(), boxtype_id))
+            cursor.execute("""
+                UPDATE Johnny_docType 
+                    SET doctype_name = ?, doctype_shortname = ?, created_at = ? 
+                    WHERE doctype_id = ?
+            """, (boxtype_name, boxtype_shortname, datetime.now(), boxtype_id))
             conn.commit()
         finally:
             cursor.close()
             conn.close()
     
     @classmethod
-    def delete_box_type(cls,boxtype_id):
+    def delete_box_doc_type(cls,boxtype_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         try:
             cursor.execute("""
                 DELETE FROM Johnny_boxType WHERE boxtype_id = ?
+            """, (boxtype_id))
+            cursor.execute("""
+                DELETE FROM Johnny_docType WHERE doctype_id = ?
             """, (boxtype_id))
             conn.commit()
         finally:
@@ -145,9 +157,9 @@ class JohnnyBox:
         cursor = conn.cursor()
         try:
             cursor.execute("""
-                INSERT INTO Johnny_box (box_id, boxtype_id, box_year, box_number, create_by, create_at, location)
+                INSERT INTO Johnny_box (box_id, boxtype_id, box_year, box_number, create_by, create_at, location_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (box_id, box_type, box_year, next_box_number, create_by, datetime.now()+ timedelta(hours=7),location))
+            """, (box_id, box_type, box_year, next_box_number, create_by, datetime.now(),location))
             conn.commit()
             return box_id
         finally:
@@ -176,7 +188,7 @@ class JohnnyBox:
                 # การอัพเดตเมื่อ box_action เป็น RELOCATE
                 cursor.execute("""
                     UPDATE Johnny_box 
-                    SET location = ?, update_at = ?, update_by = ? 
+                    SET location_id = ?, update_at = ?, update_by = ? 
                     WHERE box_id = ?
                 """, (location, datetime.now() + timedelta(hours=7), user_email, box_number))
                 conn.commit()
@@ -351,11 +363,13 @@ class DocInBox:
                 # แถวที่ select มาแล้ว ตรวจสอบค่า box_id
                 if row_dict["is_removed"] == 1:  # ตรวจสอบว่า box_id ถูกเอาออกไปแล้ว
                     raise ValueError(f"เอกสารเลขนี้ {doc_id} ถูกเอาออกจากกล่องไปแล้ว") 
+                elif row_dict["box_id"] != box_id:
+                    raise ValueError(f"เอกสารเลขนี้ {doc_id} ไม่ได้อยู่ในกล่อง {box_id}")
                 else:
                     # DELETE FROM Johnny_docInBox WHERE doc_id = ? AND box_id = ?
                     cursor.execute("""
-                        UPDATE Johnny_docInBox SET is_removed = 1 WHERE doc_id = ? AND box_id = ?
-                    """, (doc_id, box_id))
+                        UPDATE Johnny_docInBox SET is_removed = ? WHERE doc_id = ? AND box_id = ?
+                    """, (True,doc_id, box_id))
                     cursor.execute("""
                         UPDATE Johnny_doc SET remove_at = ?, remove_by = ? WHERE doc_id = ?
                     """, (datetime.now()+ timedelta(hours=7), user_email, doc_id))
@@ -521,7 +535,7 @@ class Search:
             if doctype_id:
                 query += f" AND doc.doctype_id = '{doctype_id}'"
             if location:
-                query += f" AND box.location LIKE '%{location}%'"
+                query += f" AND location.location_name LIKE '%{location}%'"
 
             if isinstance(doc_ids, list):
                 cursor.execute(query, tuple(doc_ids))
