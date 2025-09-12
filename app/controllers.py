@@ -124,6 +124,15 @@ class BoxController:
         except Exception as e:
             return {"error": str(e)}, 500
     
+    def update_location(data):
+        location_id = data.get('location_id')
+        location_name = data.get('location_name')
+        try:
+            JohnnyBox.update_location(location_id, location_name)
+            return {"message": "Location update successfully"}, 200  # Return as a dictionary with status code
+        except Exception as e:
+            return {"error": str(e)}, 500
+    
     def delete_location(data):
         location_id = data.get('location_id')
         try:

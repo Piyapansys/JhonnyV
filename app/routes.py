@@ -101,6 +101,11 @@ location_create_model = box_api.model('LocationCreateModel', {
     'location_name': fields.String(required=True, description='location_name'),
 })
 
+location_update_model = box_api.model('LocationUpdateModel', {
+    'location_id': fields.Integer(required=True, description='location_id'),
+    'location_name': fields.String(required=True, description='location_name'),
+})
+
 @box_api.route('/location')
 class BoxLocationResource(Resource):
     def get(self):
@@ -116,6 +121,15 @@ class BoxLocationResource(Resource):
         try:
             data = request.json
             return BoxController.create_location(data)
+        except Exception as e:
+            return {"message": f"An error occurred: {str(e)}"}, 500
+    
+    @box_api.expect(location_update_model)
+    def put(self):
+        """Update box type"""
+        try:
+            data = request.json
+            return BoxController.update_location(data)
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500
     

@@ -145,6 +145,21 @@ class JohnnyBox:
         finally:
             cursor.close()
             conn.close()
+
+    @classmethod
+    def update_location(cls,location_id, location_name):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                UPDATE Johnny_location 
+                    SET location_name = ?, created_at = ?
+                    WHERE location_id = ?
+            """, (location_name, datetime.now(), location_id))
+            conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
         
     @classmethod
     def delete_location(cls,location_id):
