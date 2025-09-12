@@ -131,6 +131,33 @@ class JohnnyBox:
         finally:
             cursor.close()
             conn.close()
+    
+    @classmethod
+    def create_location(cls,location_name):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT INTO Johnny_location (location_name, created_at)
+                VALUES ( ?, ?)
+            """, ( location_name, datetime.now()))
+            conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
+        
+    @classmethod
+    def delete_location(cls,location_id):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                DELETE FROM Johnny_location WHERE location_id = ?
+            """, (location_id))
+            conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
 
     @classmethod
     def get_next_box_id(cls, box_year, box_type):

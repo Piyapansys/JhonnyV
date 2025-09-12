@@ -97,36 +97,38 @@ class BoxTypesResource(Resource):
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500
 
+location_create_model = box_api.model('LocationCreateModel', {
+    'location_name': fields.String(required=True, description='location_name'),
+})
+
 @box_api.route('/location')
 class BoxLocationResource(Resource):
     def get(self):
         """Get all box locations"""
         try:
-            return BoxController.get_box_locations()
+            return BoxController.get_location()
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500
     
+    @box_api.expect(location_create_model)
     def post(self):
         """Create a new box location"""
         try:
             data = request.json
-            return BoxController.create_box_location(data)
-        except Exception as e:
-            return {"message": f"An error occurred: {str(e)}"}, 500
-        
-    def put(self):
-        """Update box location"""
-        try:
-            data = request.json
-            return BoxController.update_box_location(data)
+            return BoxController.create_location(data)
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500
     
+    @box_api.doc(params={
+        'location_id': 'location_id',
+    })
     def delete(self):
         """Delete a box location"""
         try:
-            data = request.json
-            return BoxController.delete_box_location(data)
+            data = {
+                    'location_id': request.args.get('location_id'),
+                }
+            return BoxController.delete_location(data)
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500
         

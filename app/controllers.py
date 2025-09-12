@@ -112,7 +112,23 @@ class BoxController:
     def get_location():
         try:
             location = JohnnyBox.get_location()
-            return {'data': location}, 200  # Return as a dictionary with status code
+            return location, 200  # Return as a dictionary with status code
+        except Exception as e:
+            return {"error": str(e)}, 500
+        
+    def create_location(data):
+        location_name = data.get('location_name')
+        try:
+            JohnnyBox.create_location(location_name)
+            return {"message": "Location create successfully"}, 200  # Return as a dictionary with status code
+        except Exception as e:
+            return {"error": str(e)}, 500
+    
+    def delete_location(data):
+        location_id = data.get('location_id')
+        try:
+            JohnnyBox.delete_location(location_id)
+            return {"message": "Location delete successfully"}, 200  # Return as a dictionary with status code
         except Exception as e:
             return {"error": str(e)}, 500
 
