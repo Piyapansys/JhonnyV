@@ -422,6 +422,56 @@ class DocInBox:
             cursor.close()
             conn.close()
 
+    @classmethod
+    def create_approve_pickup(cls,approval_id, requester_email, approver_email, approval_detail):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT INTO Johnny_approvalRequest (approval_id, requester_email, approver_email, approval_detail, requester_request_at, approval_status)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (approval_id, requester_email, approver_email, approval_detail, datetime.now(), 'pending'))
+            conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
+
+    @classmethod
+    def get_pickup_request(cls, approval_id, requester_email, approver_email, status):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            # cursor.execute("SELECT * FROM Johnny_approvalRequest WHERE requester_email = ? AND approver_email = ? AND approval_status = ?", (requester_email, approver_email, status))
+            params = []
+            query = """
+                SELECT * FROM Johnny_approvalRequest
+                WHERE 1=1
+            """
+            if approval_id:
+                query += " AND approval_id = ?"
+                params.append(approval_id)
+
+            if requester_email:
+                query += " AND requester_email = ?"
+                params.append(requester_email)
+
+            if approver_email:
+                query += " AND approver_email = ?"
+                params.append(approver_email)
+
+            if status:
+                query += " AND approval_status = ?"
+                params.append(status)
+
+            rows =cursor.execute(query, params)
+            if not rows:
+                return []
+            return [map_row_to_dict(cursor, row) for row in rows]
+        finally:
+            cursor.close()
+            conn.close()
+    
+
 class Search:
     @classmethod
     def search_boxes(cls, box_id=None, box_year=None, boxtype_id=None, location=None):
@@ -604,59 +654,31 @@ class Search:
         finally:
             cursor.close()
             conn.close()
-# class Authentication:
-#     @classmethod
-#     def check_user_exists(cls, user_email):
-#         conn = get_db_connection()
-#         cursor = conn.cursor()
-#         try:
-#             cursor.execute("SELECT * FROM ThothUserQuota WHERE UserEmail = ?", (user_email,))
-#             rows = cursor.fetchall()
-#             return len(rows) > 0
-#         finally:
-#             cursor.close()
-#             conn.close()
-#
-#     @classmethod
-#     def check_login_attempt(user_email):
-#         conn = get_db_connection()
-#         cursor = conn.cursor()
-#         try:
-#             cursor.execute(f"SELECT TOP 1 * FROM ThothLoginLog WHERE UserEmail = ? ORDER BY LastLogin DESC", user_email)
-#             row = cursor.fetchone()
-#             if not row:
-#                 return True
-#             if datetime.datetime.now() - row[2] < datetime.timedelta(minutes=5) and row[4] >= 3 and row[3] == 0:
-#                 return False
-#             return True
-#         finally:
-#             cursor.close()
-#             conn.close()
 
-#     @classmethod
-#     def insert_data_user_info(data): # when login first time
-#         conn = get_db_connection()
-#         cursor = conn.cursor()
-#         try:
-#             # insert data
-#             cursor.execute(f"INSERT INTO ThothUserQuota (UserEmail, Tier, DailyFilesSent, DailyImagesGenerated, DailyInputTokenSum, DailyOutputTokenSum, LastUpdated) VALUES (?, ?, ?, ?, ?, ?, ?)", data)
-#             # write log to insert_log.txt
-#             with open('insert_log.txt', 'a', encoding='utf-8') as f:
-#                 f.write('UserEmail: ' + data[0] + ', ')
-#                 f.write('Tier: ' + str(data[1]) + ', ')
-#                 f.write('DailyFilesSent: ' + str(data[2]) + ', ')
-#                 f.write('DailyImagesGenerated: ' + str(data[3]) + ', ')
-#                 f.write('DailyInputTokenSum: ' + str(data[4]) + ', ')
-#                 f.write('DailyOutputTokenSum: ' + str(data[5]) + ', ')
-#                 f.write('LastUpdated: ' + str(data[6]) + '\n')
-#             conn.commit()
-#         finally:
-#             cursor.close()
-#             conn.close()
+class UserManagement:
+    @classmethod
+    def get_user(cls, user_email):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            # cursor.execute("SELECT * FROM Johnny_approvalRequest WHERE requester_email = ? AND approver_email = ? AND approval_status = ?", (requester_email, approver_email, status))
+            params = []
+            query = """
+                SELECT * FROM Johnny_user
+                WHERE 1=1
+            """
+            if user_email:
+                query += " AND user_email = ?"
+                params.append(user_email)
 
-# def log_error_to_file(error_message):
-#     with open('error_log.txt', 'a') as f:
-#         f.write(f"{str(datetime.datetime.now())} - ERROR - {error_message}\n")
+            rows =cursor.execute(query, params)
+            if not rows:
+                return []
+            return [map_row_to_dict(cursor, row) for row in rows]
+        finally:
+            cursor.close()
+            conn.close()
+
 def map_row_to_dict(cursor, row):
     """
     แปลงแถวข้อมูลจากฐานข้อมูลเป็น dictionary โดยอัตโนมัติ

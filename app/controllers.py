@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 from flask import json, jsonify, logging
-from app.models import JohnnyBox, JohnnyDoc, DocInBox, Search
+from app.models import JohnnyBox, JohnnyDoc, DocInBox, Search, UserManagement
 from app.db import get_db_connection
 from app.config import Config
 import base64
@@ -153,6 +153,28 @@ class DocController:
         try:
             documents = JohnnyDoc.get_all_document()
             return {'data': documents}, 200  # Return as a dictionary with status code
+        except Exception as e:
+            return {"error": str(e)}, 500
+    
+    def create_approve_pickup(data):
+        approval_id = data.get('approval_id')
+        requester_email = data.get('requester_email')
+        approver_email = data.get('approver_email')
+        approval_detail = data.get('approval_detail')
+        try:
+            DocInBox.create_approve_pickup(approval_id, requester_email, approver_email, approval_detail)
+            return {"message": "Approve pickup create successfully"}, 200  # Return as a dictionary with status code
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+    def get_pickup_request(data):
+        approval_id = data.get('approval_id')
+        requester_email = data.get('requester_email')
+        approver_email = data.get('approver_email')
+        status = data.get('status')
+        try:
+            pickup_request = DocInBox.get_pickup_request(approval_id, requester_email, approver_email, status)
+            return pickup_request, 200  # Return as a dictionary with status code
         except Exception as e:
             return {"error": str(e)}, 500
 
@@ -386,6 +408,14 @@ class SearchController:
         except Exception as e:
             return {"error": str(e)}, 500
 
-
+class UserController:
+        
+    def get_user(data):
+        user_email = data.get('user_email')
+        try:
+            user = UserManagement.get_user(user_email)
+            return user, 200  # Return as a dictionary with status code
+        except Exception as e:
+            return {"error": str(e)}, 500
 
     

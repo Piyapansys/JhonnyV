@@ -1,7 +1,7 @@
 from http.client import HTTPException
 from flask import jsonify, request
 from flask_restx import Namespace, Resource, fields
-from app.controllers import BoxController, DocController, SearchController
+from app.controllers import BoxController, DocController, SearchController, UserController
 from app.config import Config
 # --- Box Namespace ---
 box_api = Namespace('api/boxes', description='Box operations')
@@ -222,6 +222,61 @@ class DocGetAllResource(Resource):
             return documents  # Just return the data and status
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500
+        
+approve_model = doc_api.model('ApprovePickupModel', {
+    'approval_id': fields.String(required=True, description='approval_id'),
+    'requester_email': fields.String(required=True, description='requester_email'),
+    'approver_email': fields.String(required=True, description='approver_email'),
+    'approval_detail': fields.String(required=True, description='approval_detail'),
+})
+        
+@doc_api.route('/pickup-requests')
+class PickupApproveResource(Resource):
+    @doc_api.expect(approve_model)
+    def post(self):
+        """Approve Pickup Request"""
+        try:
+            data = request.json
+            return DocController.create_approve_pickup(data)
+        except Exception as e:
+            return {"message": f"An error occurred: {str(e)}"}, 500
+
+
+    @doc_api.doc(params={
+        'approval_id': 'approval_id',
+        'requester_email': 'requester_email',
+        'approver_email': 'approver_email',
+        'status': 'status',
+    })
+    def get(self):
+        """List of Pickup Request"""
+        try:
+            data = {
+                    'approval_id': request.args.get('approval_id'),
+                    'requester_email': request.args.get('requester_email'),
+                    'approver_email': request.args.get('approver_email'),
+                    'status': request.args.get('status'),
+                }
+            return DocController.get_pickup_request(data)
+        except Exception as e:
+            return {"message": f"An error occurred: {str(e)}"}, 500
+
+    @doc_api.expect(approve_model)
+    def post(self):
+        """Approve Pickup Request"""
+        try:
+            data = request.json
+            return DocController.create_approve_pickup(data)
+        except Exception as e:
+            return {"message": f"An error occurred: {str(e)}"}, 500
+    # @box_api.expect(location_create_model)
+    # def put(self):
+    #     """Create a new box location"""
+    #     try:
+    #         data = request.json
+    #         return BoxController.create_location(data)
+    #     except Exception as e:
+    #         return {"message": f"An error occurred: {str(e)}"}, 500
 
 search_api = Namespace('api/search', description='Search operations')
 
@@ -271,4 +326,28 @@ class DocSearchResource(Resource):
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500
 
-#asdasd
+
+
+user_api = Namespace('api/user', description='User operations')
+
+@user_api.route('/get-user')
+class UserManageResource(Resource):
+    # def get(self):
+    #     """get user for login"""
+    #     try:
+    #         return BoxController.get_box_types()
+    #     except Exception as e:
+    #         return {"message": f"An error occurred: {str(e)}"}, 500
+
+    @user_api.doc(params={
+        'user_email': 'user_email',
+    })
+    def get(self):
+        """get user by email"""
+        try:
+            data = {
+                    'user_email': request.args.get('user_email'),
+                }
+            return UserController.get_user(data)
+        except Exception as e:
+            return {"message": f"An error occurred: {str(e)}"}, 500

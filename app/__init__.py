@@ -23,12 +23,13 @@ def create_app():
     CORS(app, resources={r"/api/*": {"origins": "*"}})
 
     # Register namespaces
-    from app.routes import box_api, doc_api, search_api
+    from app.routes import box_api, doc_api, search_api, user_api
     api.add_namespace(box_api)
     api.add_namespace(doc_api)
     # api.add_namespace(upload_api)
     # api.add_namespace(trigger_api)
     api.add_namespace(search_api)
+    api.add_namespace(user_api)
     # Test database connection (optional)
     try:
         conn = get_db_connection()  # Open the database connection
