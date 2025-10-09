@@ -1,44 +1,46 @@
 from flask import Flask
 from flask_restx import Api
 from flask_cors import CORS
-from app.config import Config
-from app.db import get_db_connection
-from flask_sqlalchemy import SQLAlchemy
-
-db = SQLAlchemy()
-# Initialize the API object
-api = Api(title="Johhny Voucher API", version="1.0", description="An API for managing document boxes")
+from app.routes.box import box_api
+from app.routes.doc import doc_api
+from app.routes.search import search_api
+from app.routes.user import user_api
+from app.routes.auth import auth_api
 
 def create_app():
     app = Flask(__name__)
-    app.config.from_object(Config)
-
-    # Initialize db with the Flask app
-    db.init_app(app)
-
-    # Initialize API with the Flask app
-    api.init_app(app)
-
-    # CORS(app)
-    CORS(app, resources={r"/api/*": {"origins": "*"}})
-
+    
+    # Configure CORS to allow requests from frontend
+    CORS(app, 
+         origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "http://127.0.0.1:3000"],
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+         allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+         supports_credentials=True,
+         expose_headers=["Content-Type", "Authorization"])
+    
+    api = Api(
+        app,
+        version='1.0',
+        title='Johnny Voucher API',
+        description='API for Johnny Voucher Application',
+        doc='/api/docs'
+    )
+    
     # Register namespaces
-    from app.routes import box_api, doc_api, search_api, user_api
     api.add_namespace(box_api)
     api.add_namespace(doc_api)
-    # api.add_namespace(upload_api)
-    # api.add_namespace(trigger_api)
     api.add_namespace(search_api)
     api.add_namespace(user_api)
-    # Test database connection (optional)
-    try:
-        conn = get_db_connection()  # Open the database connection
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1")  # Simple query to verify the connection
-        print("Database connection successful.")
-        cursor.close()
-        conn.close()
-    except Exception as e:
-        print(f"Database connection failed: {e}")
+    api.add_namespace(auth_api)
+    
+    # Add root route
+    @app.route('/')
+    def index():
+        return {
+            "message": "Johnny Voucher API is running!",
+            "version": "1.0",
+            "docs": "/api/docs",
+            "status": "active"
+        }
     
     return app

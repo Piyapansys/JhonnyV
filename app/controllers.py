@@ -112,7 +112,7 @@ class BoxController:
     def get_location():
         try:
             location = JohnnyBox.get_location()
-            return location, 200  # Return as a dictionary with status code
+            return {'data': location}, 200  # Return as a dictionary with status code
         except Exception as e:
             return {"error": str(e)}, 500
         
@@ -174,7 +174,7 @@ class DocController:
         status = data.get('status')
         try:
             pickup_request = DocInBox.get_pickup_request(approval_id, requester_email, approver_email, status)
-            return pickup_request, 200  # Return as a dictionary with status code
+            return {'data': pickup_request}, 200  # Return as a dictionary with status code
         except Exception as e:
             return {"error": str(e)}, 500
 
@@ -414,7 +414,22 @@ class UserController:
         user_email = data.get('user_email')
         try:
             user = UserManagement.get_user(user_email)
-            return user, 200  # Return as a dictionary with status code
+            return {'data': user}, 200  # Return as a dictionary with status code
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+    def get_approver():
+        try:
+            user = UserManagement.get_approver()
+            return {'data': user}, 200  # Return as a dictionary with status code
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+    def get_approver_by_email(data):
+        user_email = data.get('user_email')
+        try:
+            is_approver = UserManagement.get_approver_by_email(user_email)
+            return is_approver, 200  # Return as a dictionary with status code
         except Exception as e:
             return {"error": str(e)}, 500
 

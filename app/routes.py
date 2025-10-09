@@ -332,13 +332,6 @@ user_api = Namespace('api/user', description='User operations')
 
 @user_api.route('/get-user')
 class UserManageResource(Resource):
-    # def get(self):
-    #     """get user for login"""
-    #     try:
-    #         return BoxController.get_box_types()
-    #     except Exception as e:
-    #         return {"message": f"An error occurred: {str(e)}"}, 500
-
     @user_api.doc(params={
         'user_email': 'user_email',
     })
@@ -349,5 +342,14 @@ class UserManageResource(Resource):
                     'user_email': request.args.get('user_email'),
                 }
             return UserController.get_user(data)
+        except Exception as e:
+            return {"message": f"An error occurred: {str(e)}"}, 500
+
+@user_api.route('/get-approver')
+class ApproverResource(Resource):
+    def get(self):
+        """get approver"""
+        try:
+            return UserController.get_approver()
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500

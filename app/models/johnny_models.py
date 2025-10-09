@@ -463,8 +463,7 @@ class DocInBox:
                 query += " AND approval_status = ?"
                 params.append(status)
 
-            cursor.execute(query, params)
-            rows = cursor.fetchall()
+            rows =cursor.execute(query, params)
             if not rows:
                 return []
             return [map_row_to_dict(cursor, row) for row in rows]
@@ -507,67 +506,6 @@ class Search:
 
             cursor.execute(query)  # รัน query ที่สร้างขึ้น
             rows = cursor.fetchall()
-            if not rows:
-                return []  # หากไม่มีข้อมูล ให้คืนค่าเป็น list ว่างๆ
-
-            columns = [column[0] for column in cursor.description]
-
-
-            def convert_datetime(value):
-                if isinstance(value, datetime):
-                    return value.isoformat()  # หรือใช้ str(value) ก็ได้
-                return value
-            
-            # แปลงแต่ละแถวให้เป็น dictionary และแปลง datetime ให้เป็น string
-            result = [dict(zip(columns, [convert_datetime(value) for value in row])) for row in rows]
-            return result
-        except Exception as e:
-            print(f"Database error: {str(e)}")  # Add logging
-            raise  # Re-raise the exception to be caught by the controller
-        finally:
-            cursor.close()
-            conn.close()
-
-    # @classmethod
-    # def search_documents(cls, doc_id=None, doc_year=None, doctype_id=None, location=None):
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        try:
-            # เริ่มจาก query พื้นฐาน
-            query = """
-                SELECT doc.doc_id
-                    ,doc.doc_year
-                    ,doc.doctype_id
-                    ,doc.doc_number
-                    ,doc.remove_at
-                    ,doc.remove_by
-                    ,doc.store_at
-                    ,doc.store_by
-                    ,docinbox.box_id
-                    ,box.box_year
-                    ,box.boxtype_id
-                    ,box.box_close
-                    ,box.location
-                FROM [dbo].[Johnny_doc] doc
-                LEFT JOIN [dbo].[Johnny_docInBox] docinbox ON doc.doc_id = docinbox.doc_id
-                LEFT JOIN [dbo].[Johnny_box] box ON docinbox.box_id = box.box_id
-                WHERE 1=1
-            """
-
-            # เพิ่มเงื่อนไข
-            if doc_id:
-                query += f" AND doc.doc_id LIKE '%{doc_id}%'"
-            if doc_year:
-                query += f" AND doc.doc_year = '{doc_year}'"
-            if doctype_id:
-                query += f" AND doc.doctype_id = '{doctype_id}'"
-            if location:
-                query += f" AND box.location LIKE '%{location}%'"
-
-            # ส่ง query ไป execute
-            cursor.execute(query)
-
-            rows = cursor.fetchall()  # ใช้ fetchall เพื่อดึงข้อมูลทั้งหมด
             if not rows:
                 return []  # หากไม่มีข้อมูล ให้คืนค่าเป็น list ว่างๆ
 
@@ -672,14 +610,27 @@ class UserManagement:
                 query += " AND user_email = ?"
                 params.append(user_email)
 
-            cursor.execute(query, params)
-            rows = cursor.fetchall()
+            rows =cursor.execute(query, params)
             if not rows:
                 return []
             return [map_row_to_dict(cursor, row) for row in rows]
         finally:
             cursor.close()
             conn.close()
+
+    # @classmethod
+    # def get_approver_by_email(cls, user_email):
+    #     conn = get_db_connection()
+    #     cursor = conn.cursor()
+    #     try:
+    #         cursor.execute("SELECT is_approver FROM Johnny_user WHERE user_email = ?", (user_email,))
+    #         row = cursor.fetchone()
+    #         if row:
+    #             return row  # Return the raw row or map to an object
+    #         return None
+    #     finally:
+    #         cursor.close()
+    #         conn.close()
 
     @classmethod
     def get_approver(cls):
@@ -687,20 +638,17 @@ class UserManagement:
         cursor = conn.cursor()
         try:
             query = """
-                SELECT * FROM Johnny_user
+                SELECT user_email, user_name, is_approver, role_id FROM Johnny_user
                 WHERE is_approver = 1
             """
 
-            cursor.execute(query)
-            rows = cursor.fetchall()
+            rows =cursor.execute(query)
             if not rows:
                 return []
             return [map_row_to_dict(cursor, row) for row in rows]
         finally:
             cursor.close()
             conn.close()
-    
-
 
 def map_row_to_dict(cursor, row):
     """
@@ -732,3 +680,4 @@ def map_row_to_dict(cursor, row):
         result[column_name] = value
 
     return result
+
