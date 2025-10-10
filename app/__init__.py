@@ -23,7 +23,7 @@ def create_app():
         version='1.0',
         title='Johnny Voucher API',
         description='API for Johnny Voucher Application',
-        doc=''
+        doc='api/docs'  # Swagger UI available at /api/docs
     )
     
     # Register namespaces
@@ -39,7 +39,7 @@ def create_app():
         return {
             "message": "Johnny Voucher API is running!",
             "version": "1.0",
-            "docs": "",
+            "docs": "api/docs",
             "status": "active"
         }
     
