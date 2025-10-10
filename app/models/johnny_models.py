@@ -369,7 +369,7 @@ class DocInBox:
         conn = get_db_connection()
         cursor = conn.cursor()
         try:
-            cursor.execute("SELECT * FROM Johnny_docInBox WHERE doc_id = ? AND is_removed = 0", (doc_id,))
+            cursor.execute("SELECT * FROM Johnny_docInBox WHERE doc_id = ?", (doc_id,))
             row = cursor.fetchone()
             if row:
                 return dict(zip([column[0] for column in cursor.description], row))
