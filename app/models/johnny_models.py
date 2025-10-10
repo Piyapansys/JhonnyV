@@ -470,6 +470,21 @@ class DocInBox:
         finally:
             cursor.close()
             conn.close()
+
+    @classmethod
+    def update_approval_status(cls, approval_id, approval_status, approver_comment):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                UPDATE Johnny_approvalRequest 
+                SET approval_status = ?, approver_action_at = ?, approver_comment = ?
+                WHERE approval_id = ?
+            """, (approval_status, datetime.now(), approver_comment, approval_id))
+            conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
     
 
 class Search:

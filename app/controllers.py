@@ -178,6 +178,23 @@ class DocController:
         except Exception as e:
             return {"error": str(e)}, 500
 
+    def update_request_status(data):
+        approval_id = data.get('approval_id')
+        approval_status = data.get('approval_status')
+        approver_comment = data.get('approver_comment')
+        
+        if not approval_id or not approval_status:
+            return {"message": "Missing required fields"}, 400
+            
+        if approval_status not in ['approved', 'rejected']:
+            return {"message": "Invalid approval status. Must be 'approved' or 'rejected'"}, 400
+            
+        try:
+            DocInBox.update_approval_status(approval_id, approval_status, approver_comment)
+            return {"message": "Approval request status updated successfully"}, 200
+        except Exception as e:
+            return {"error": str(e)}, 500
+
     # def store_doc(data):
     #     box_id = data.get('box_id')
     #     # doc_year = data.get('document_year')

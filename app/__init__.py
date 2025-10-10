@@ -23,7 +23,7 @@ def create_app():
         version='1.0',
         title='Johnny Voucher API',
         description='API for Johnny Voucher Application',
-        doc='/api/docs'
+        doc=''
     )
     
     # Register namespaces
@@ -39,7 +39,7 @@ def create_app():
         return {
             "message": "Johnny Voucher API is running!",
             "version": "1.0",
-            "docs": "/api/docs",
+            "docs": "",
             "status": "active"
         }
     

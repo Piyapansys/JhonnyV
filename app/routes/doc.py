@@ -67,6 +67,12 @@ approve_model = doc_api.model('ApprovePickupModel', {
     'approver_email': fields.String(required=True, description='approver_email'),
     'approval_detail': fields.String(required=True, description='approval_detail'),
 })
+
+update_status_model = doc_api.model('UpdateRequestStatusModel', {
+    'approval_id': fields.String(required=True, description='approval_id'),
+    'approval_status': fields.String(required=True, description='approval_status (approved or rejected)'),
+    'approver_comment': fields.String(required=False, description='approver_comment'),
+})
         
 @doc_api.route('/pickup-requests')
 class PickupApproveResource(Resource):
@@ -99,6 +105,19 @@ class PickupApproveResource(Resource):
                     'status': request.args.get('status'),
                 }
             result = DocController.get_pickup_request(data)
+            return result[0], result[1]
+        except Exception as e:
+            return {"message": f"An error occurred: {str(e)}"}, 500
+
+@doc_api.route('/update-request-status')
+class UpdateRequestStatusResource(Resource):
+    @doc_api.expect(update_status_model)
+    @role_required('allow_pickup')
+    def put(self, user_data=None):
+        """Update approval request status"""
+        try:
+            data = request.json
+            result = DocController.update_request_status(data)
             return result[0], result[1]
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500
