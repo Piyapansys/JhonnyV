@@ -11,12 +11,13 @@ def create_app():
     app = Flask(__name__)
     
     # Configure CORS to allow requests from frontend
-    CORS(app, 
-         origins=["*"],
-         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-         allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
-         supports_credentials=True,
-         expose_headers=["Content-Type", "Authorization"])
+    CORS(app,
+            origins=["http://localhost:5173", "http://10.41.97.111:64401"],
+            methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+            allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+            supports_credentials=True,
+            expose_headers=["Content-Type", "Authorization"])
+
     
     api = Api(
         app,
