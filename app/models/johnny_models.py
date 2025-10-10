@@ -364,6 +364,21 @@ class JohnnyDoc:
 class DocInBox:
     
     @classmethod
+    def get_doc_by_id(cls, doc_id):
+        """Get document info by doc_id"""
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM Johnny_docInBox WHERE doc_id = ? AND is_removed = 0", (doc_id,))
+            row = cursor.fetchone()
+            if row:
+                return dict(zip([column[0] for column in cursor.description], row))
+            return None
+        finally:
+            cursor.close()
+            conn.close()
+    
+    @classmethod
     def create_docInBox(cls, id, doc_id, box_id):
         conn = get_db_connection()
         cursor = conn.cursor()

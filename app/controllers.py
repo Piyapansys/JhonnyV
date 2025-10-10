@@ -285,6 +285,11 @@ class DocController:
                     if str(box_data.boxtype_id) != doctype_id:
                         errors.append("ประเภทของเอกสารไม่ตรงกับประเภทของกล่อง")
 
+                    # ตรวจสอบว่าเอกสารนี้อยู่ในกล่องอื่นหรือไม่
+                    existing_doc = DocInBox.get_doc_by_id(doc)
+                    if existing_doc and existing_doc.get('box_id') != box_id:
+                        errors.append(f"เอกสารเลขนี้ {doc} อยู่ในกล่อง {existing_doc.get('box_id')} แล้ว")
+
                     if errors:
                         results.append({
                             "doc": doc,

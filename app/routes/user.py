@@ -1,6 +1,5 @@
 from flask import request
 from flask_restx import Namespace, Resource
-from flask_cors import cross_origin
 from app.controllers import UserController
 from app.middleware.auth_middleware import token_required, role_required
 
@@ -41,12 +40,6 @@ class UserManageResource(Resource):
 
 @user_api.route('/get-approver')
 class ApproverResource(Resource):
-    @cross_origin(origins=["http://localhost:5173", "http://127.0.0.1:5173"], supports_credentials=True)
-    def options(self):
-        """Handle preflight request"""
-        return '', 200
-    
-    @cross_origin(origins=["http://localhost:5173", "http://127.0.0.1:5173"], supports_credentials=True)
     @token_required
     def get(self, user_data=None):
         """get approver"""
