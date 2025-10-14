@@ -3,7 +3,7 @@ from flask_restx import Namespace, Resource, fields
 from app.models.auth import AuthModel
 from app.db import get_db_connection
 
-auth_api = Namespace('auth', description='Authentication operations')
+auth_api = Namespace('api/auth', description='Authentication operations')
 
 login_model = auth_api.model('LoginModel', {
     'email': fields.String(required=True, description='User email'),

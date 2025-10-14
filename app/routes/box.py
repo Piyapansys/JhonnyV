@@ -3,7 +3,7 @@ from flask_restx import Namespace, Resource, fields
 from app.controllers import BoxController
 from app.middleware.auth_middleware import token_required, role_required
 
-box_api = Namespace('boxes', description='Box operations')
+box_api = Namespace('api/boxes', description='Box operations')
 
 # Model for creating boxes
 create_box_model = box_api.model('BoxCreateModel', {
