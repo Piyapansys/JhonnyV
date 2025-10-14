@@ -476,4 +476,115 @@ class UserController:
         except Exception as e:
             return {"error": str(e)}, 500
 
+    def get_all_users():
+        try:
+            users = UserManagement.get_all_users()
+            return {'data': users}, 200
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+    def create_user(data):
+        user_email = data.get('user_email')
+        user_name = data.get('user_name')
+        role_id = data.get('role_id', 2)  # Default role_id = 2
+        is_approver = data.get('is_approver', False)
+        
+        if not user_email or not user_name:
+            return {"message": "user_email and user_name are required"}, 400
+            
+        try:
+            UserManagement.create_user(user_email, user_name, role_id, is_approver)
+            return {"message": "User created successfully"}, 201
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+    def update_user(data):
+        user_email = data.get('user_email')
+        user_name = data.get('user_name')
+        role_id = data.get('role_id')
+        is_approver = data.get('is_approver')
+        
+        if not user_email:
+            return {"message": "user_email is required"}, 400
+            
+        try:
+            UserManagement.update_user(user_email, user_name, role_id, is_approver)
+            return {"message": "User updated successfully"}, 200
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+    def delete_user(data):
+        user_email = data.get('user_email')
+        
+        if not user_email:
+            return {"message": "user_email is required"}, 400
+            
+        try:
+            UserManagement.delete_user(user_email)
+            return {"message": "User deleted successfully"}, 200
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+    def get_all_roles():
+        try:
+            roles = UserManagement.get_all_roles()
+            return {'data': roles}, 200
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+    def create_role(data):
+        role_name = data.get('role_name')
+        allow_create = data.get('allow_create', False)
+        allow_change = data.get('allow_change', False)
+        allow_pickup = data.get('allow_pickup', False)
+        allow_setting = data.get('allow_setting', False)
+        allow_report = data.get('allow_report', False)
+        allow_user_manage = data.get('allow_user_manage', False)
+        
+        if not role_name:
+            return {"message": "role_name is required"}, 400
+            
+        try:
+            UserManagement.create_role(
+                role_name, allow_create, allow_change, allow_pickup, 
+                allow_setting, allow_report, allow_user_manage
+            )
+            return {"message": "Role created successfully"}, 201
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+    def update_role(data):
+        role_id = data.get('role_id')
+        role_name = data.get('role_name')
+        allow_create = data.get('allow_create')
+        allow_change = data.get('allow_change')
+        allow_pickup = data.get('allow_pickup')
+        allow_setting = data.get('allow_setting')
+        allow_report = data.get('allow_report')
+        allow_user_manage = data.get('allow_user_manage')
+        
+        if not role_id:
+            return {"message": "role_id is required"}, 400
+            
+        try:
+            UserManagement.update_role(
+                role_id, role_name, allow_create, allow_change, allow_pickup,
+                allow_setting, allow_report, allow_user_manage
+            )
+            return {"message": "Role updated successfully"}, 200
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+    def delete_role(data):
+        role_id = data.get('role_id')
+        
+        if not role_id:
+            return {"message": "role_id is required"}, 400
+            
+        try:
+            UserManagement.delete_role(role_id)
+            return {"message": "Role deleted successfully"}, 200
+        except Exception as e:
+            return {"error": str(e)}, 500
+
     

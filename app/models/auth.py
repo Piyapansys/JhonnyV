@@ -1,8 +1,15 @@
 from datetime import datetime, timedelta
 import jwt
 import uuid
+import pytz
 from app.db import get_db_connection
 from app.config import Config
+
+# ฟังก์ชันสำหรับได้เวลาปัจจุบันใน timezone ประเทศไทย
+def get_current_datetime():
+    """ได้เวลาปัจจุบันใน timezone ประเทศไทย (UTC+7)"""
+    thailand_tz = pytz.timezone('Asia/Bangkok')
+    return datetime.now(thailand_tz)
 
 config = Config()
 
@@ -26,16 +33,16 @@ class AuthModel:
             access_token_payload = {
                 'user_email': user_email,
                 'role_id': role_id,
-                'exp': datetime.utcnow() + timedelta(minutes=60),  # 60 minutes expiration
-                'iat': datetime.utcnow(),
+                'exp': get_current_datetime() + timedelta(minutes=60),  # 60 minutes expiration
+                'iat': get_current_datetime(),
                 'jti': str(uuid.uuid4())
             }
             
             # Generate refresh token
             refresh_token_payload = {
                 'user_email': user_email,
-                'exp': datetime.utcnow() + timedelta(days=7),  # 7 days expiration
-                'iat': datetime.utcnow(),
+                'exp': get_current_datetime() + timedelta(days=7),  # 7 days expiration
+                'iat': get_current_datetime(),
                 'jti': str(uuid.uuid4())
             }
             
@@ -52,12 +59,12 @@ class AuthModel:
             )
             
             # Store tokens in database
-            token_expire = datetime.utcnow() + timedelta(minutes=60)
+            token_expire = get_current_datetime() + timedelta(minutes=60)
             cursor.execute("""
                 UPDATE Johnny_user 
                 SET access_token = ?, token_expire = ?, refresh_token = ?, last_login = ?
                 WHERE user_email = ?
-            """, (access_token, token_expire, refresh_token, datetime.utcnow(), user_email))
+            """, (access_token, token_expire, refresh_token, get_current_datetime(), user_email))
             conn.commit()
             
             return access_token, refresh_token
@@ -93,8 +100,8 @@ class AuthModel:
                 access_token_payload = {
                     'user_email': user_email,
                     'role_id': user[2],  # Assuming role_id is at index 2
-                    'exp': datetime.utcnow() + timedelta(minutes=60),
-                    'iat': datetime.utcnow(),
+                    'exp': get_current_datetime() + timedelta(minutes=60),
+                    'iat': get_current_datetime(),
                     'jti': str(uuid.uuid4())
                 }
                 
@@ -105,7 +112,7 @@ class AuthModel:
                 )
                 
                 # Update access token in database
-                token_expire = datetime.utcnow() + timedelta(minutes=60)
+                token_expire = get_current_datetime() + timedelta(minutes=60)
                 cursor.execute("""
                     UPDATE Johnny_user 
                     SET access_token = ?, token_expire = ?
@@ -150,7 +157,7 @@ class AuthModel:
                 cursor.execute("SELECT token_expire FROM Johnny_user WHERE user_email = ?", (user_email,))
                 token_expire = cursor.fetchone()[0]
                 
-                if token_expire and datetime.utcnow() > token_expire:
+                if token_expire and get_current_datetime() > token_expire:
                     return None
                 
                 return {

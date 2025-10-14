@@ -1,7 +1,14 @@
 from datetime import datetime,timedelta, date
 from decimal import Decimal
 from uuid import uuid4
+import pytz
 from app.db import get_db_connection
+
+# ฟังก์ชันสำหรับได้เวลาปัจจุบันใน timezone ประเทศไทย
+def get_current_datetime():
+    """ได้เวลาปัจจุบันใน timezone ประเทศไทย (UTC+7)"""
+    thailand_tz = pytz.timezone('Asia/Bangkok')
+    return datetime.now(thailand_tz)
 from collections import OrderedDict
 
 
@@ -69,11 +76,11 @@ class JohnnyBox:
             cursor.execute("""
                 INSERT INTO Johnny_boxType (boxtype_id, boxtype_name, boxtype_shortname, created_at)
                 VALUES (?, ?, ?, ?)
-            """, (boxtype_id, boxtype_name, boxtype_shortname, datetime.now()))
+            """, (boxtype_id, boxtype_name, boxtype_shortname, get_current_datetime()))
             cursor.execute("""
                 INSERT INTO Johnny_docType (doctype_id, doctype_name, doctype_shortname, created_at)
                 VALUES (?, ?, ?, ?)
-            """, (boxtype_id, boxtype_name, boxtype_shortname, datetime.now()))
+            """, (boxtype_id, boxtype_name, boxtype_shortname, get_current_datetime()))
             conn.commit()
         finally:
             cursor.close()
@@ -88,12 +95,12 @@ class JohnnyBox:
                 UPDATE Johnny_boxType 
                     SET boxtype_name = ?, boxtype_shortname = ?, created_at = ? 
                     WHERE boxtype_id = ?
-            """, (boxtype_name, boxtype_shortname, datetime.now(), boxtype_id))
+            """, (boxtype_name, boxtype_shortname, get_current_datetime(), boxtype_id))
             cursor.execute("""
                 UPDATE Johnny_docType 
                     SET doctype_name = ?, doctype_shortname = ?, created_at = ? 
                     WHERE doctype_id = ?
-            """, (boxtype_name, boxtype_shortname, datetime.now(), boxtype_id))
+            """, (boxtype_name, boxtype_shortname, get_current_datetime(), boxtype_id))
             conn.commit()
         finally:
             cursor.close()
@@ -140,7 +147,7 @@ class JohnnyBox:
             cursor.execute("""
                 INSERT INTO Johnny_location (location_name, created_at)
                 VALUES ( ?, ?)
-            """, ( location_name, datetime.now()))
+            """, ( location_name, get_current_datetime()))
             conn.commit()
         finally:
             cursor.close()
@@ -155,7 +162,7 @@ class JohnnyBox:
                 UPDATE Johnny_location 
                     SET location_name = ?, created_at = ?
                     WHERE location_id = ?
-            """, (location_name, datetime.now(), location_id))
+            """, (location_name, get_current_datetime(), location_id))
             conn.commit()
         finally:
             cursor.close()
@@ -201,7 +208,7 @@ class JohnnyBox:
             cursor.execute("""
                 INSERT INTO Johnny_box (box_id, boxtype_id, box_year, box_number, create_by, create_at, location_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (box_id, box_type, box_year, next_box_number, create_by, datetime.now(),location))
+            """, (box_id, box_type, box_year, next_box_number, create_by, get_current_datetime(),location))
             conn.commit()
             return box_id
         finally:
@@ -222,7 +229,7 @@ class JohnnyBox:
             #         UPDATE Johnny_box 
             #         SET box_close = ?, update_at = ?, update_by = ? 
             #         WHERE box_id = ?
-            #     """, (status, datetime.now() + timedelta(hours=7), user_email, box_number))
+            #     """, (status, get_current_datetime(), user_email, box_number))
             #     conn.commit()
 
             # ตรวจสอบว่า box_action เป็น RELOCATE
@@ -232,7 +239,7 @@ class JohnnyBox:
                     UPDATE Johnny_box 
                     SET location_id = ?, update_at = ?, update_by = ? 
                     WHERE box_id = ?
-                """, (location, datetime.now() + timedelta(hours=7), user_email, box_number))
+                """, (location, get_current_datetime(), user_email, box_number))
                 conn.commit()
         finally:
             cursor.close()
@@ -255,12 +262,12 @@ class JohnnyDoc:
                     UPDATE Johnny_doc 
                     SET store_at = ?, store_by = ? 
                     WHERE doc_id = ?
-                """, (datetime.now()+ timedelta(hours=7), store_by, doc_id))
+                """, (get_current_datetime()+ timedelta(hours=7), store_by, doc_id))
             else:
                 cursor.execute("""
                     INSERT INTO Johnny_doc (doc_id, doctype_id, doc_year, doc_number, store_by, store_at)
                     VALUES (?, ?, ?, ?, ?, ?)
-                """, (doc_id, doctype_id, doc_year, doc_number, store_by, datetime.now()))
+                """, (doc_id, doctype_id, doc_year, doc_number, store_by, get_current_datetime()))
             conn.commit()
             return doc_id
         finally:
@@ -429,7 +436,7 @@ class DocInBox:
                     """, (True,doc_id, box_id))
                     cursor.execute("""
                         UPDATE Johnny_doc SET remove_at = ?, remove_by = ? WHERE doc_id = ?
-                    """, (datetime.now()+ timedelta(hours=7), user_email, doc_id))
+                    """, (get_current_datetime()+ timedelta(hours=7), user_email, doc_id))
                     conn.commit()
             else:
                 raise ValueError(f"เอกสารเลขนี้ {doc_id} ยังไม่เคยถูกจัดเก็บ")
@@ -445,7 +452,7 @@ class DocInBox:
             cursor.execute("""
                 INSERT INTO Johnny_approvalRequest (approval_id, requester_email, approver_email, approval_detail, requester_request_at, approval_status, approval_response)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (approval_id, requester_email, approver_email, approval_detail, datetime.now(), 'pending', None))
+            """, (approval_id, requester_email, approver_email, approval_detail, get_current_datetime(), 'pending', None))
             conn.commit()
         finally:
             cursor.close()
@@ -503,7 +510,7 @@ class DocInBox:
                 UPDATE Johnny_approvalRequest 
                 SET approval_status = ?, approver_action_at = ?, approver_comment = ?, approval_response = ?
                 WHERE approval_id = ?
-            """, (approval_status, datetime.now(), approver_comment, approval_response, approval_id))
+            """, (approval_status, get_current_datetime(), approver_comment, approval_response, approval_id))
             
             # Check if any rows were affected
             rows_affected = cursor.rowcount
@@ -701,6 +708,223 @@ class UserManagement:
             if not rows:
                 return []
             return [map_row_to_dict(cursor, row) for row in rows]
+        finally:
+            cursor.close()
+            conn.close()
+
+    @classmethod
+    def get_all_users(cls):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            query = """
+                SELECT u.user_email, u.user_name, u.role_id, u.is_approver, u.last_login,
+                       r.role_name
+                FROM Johnny_user u
+                LEFT JOIN Johnny_role r ON u.role_id = r.role_id
+                ORDER BY u.user_email
+            """
+
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            if not rows:
+                return []
+            return [map_row_to_dict(cursor, row) for row in rows]
+        finally:
+            cursor.close()
+            conn.close()
+
+    @classmethod
+    def create_user(cls, user_email, user_name, role_id, is_approver):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            # Check if user already exists
+            cursor.execute("SELECT user_email FROM Johnny_user WHERE user_email = ?", (user_email,))
+            if cursor.fetchone():
+                raise ValueError("User with this email already exists")
+            
+            cursor.execute("""
+                INSERT INTO Johnny_user (user_email, user_name, role_id, is_approver, last_login)
+                VALUES (?, ?, ?, ?, ?)
+            """, (user_email, user_name, role_id, is_approver, None))
+            conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
+
+    @classmethod
+    def update_user(cls, user_email, user_name=None, role_id=None, is_approver=None):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            # Check if user exists
+            cursor.execute("SELECT user_email FROM Johnny_user WHERE user_email = ?", (user_email,))
+            if not cursor.fetchone():
+                raise ValueError("User not found")
+            
+            # Build dynamic update query
+            updates = []
+            params = []
+            
+            if user_name is not None:
+                updates.append("user_name = ?")
+                params.append(user_name)
+            
+            if role_id is not None:
+                updates.append("role_id = ?")
+                params.append(role_id)
+            
+            if is_approver is not None:
+                updates.append("is_approver = ?")
+                params.append(is_approver)
+            
+            if updates:
+                params.append(user_email)
+                query = f"UPDATE Johnny_user SET {', '.join(updates)} WHERE user_email = ?"
+                cursor.execute(query, params)
+                conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
+
+    @classmethod
+    def delete_user(cls, user_email):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            # Check if user exists
+            cursor.execute("SELECT user_email FROM Johnny_user WHERE user_email = ?", (user_email,))
+            if not cursor.fetchone():
+                raise ValueError("User not found")
+            
+            cursor.execute("DELETE FROM Johnny_user WHERE user_email = ?", (user_email,))
+            conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
+
+    @classmethod
+    def get_all_roles(cls):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            query = """
+                SELECT r.role_id, r.role_name, r.allow_create, r.allow_change, r.allow_pickup,
+                       r.allow_setting, r.allow_report, r.allow_user_manage,
+                       COUNT(u.user_email) as user_count
+                FROM Johnny_role r
+                LEFT JOIN Johnny_user u ON r.role_id = u.role_id
+                GROUP BY r.role_id, r.role_name, r.allow_create, r.allow_change, r.allow_pickup,
+                         r.allow_setting, r.allow_report, r.allow_user_manage
+                ORDER BY r.role_id
+            """
+
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            if not rows:
+                return []
+            return [map_row_to_dict(cursor, row) for row in rows]
+        finally:
+            cursor.close()
+            conn.close()
+
+    @classmethod
+    def create_role(cls, role_name, allow_create, allow_change, allow_pickup, allow_setting, allow_report, allow_user_manage):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            # Check if role already exists
+            cursor.execute("SELECT role_name FROM Johnny_role WHERE role_name = ?", (role_name,))
+            if cursor.fetchone():
+                raise ValueError("Role with this name already exists")
+            
+            # Get next role_id
+            cursor.execute("SELECT MAX(role_id) FROM Johnny_role")
+            result = cursor.fetchone()
+            next_role_id = (result[0] or 0) + 1
+            
+            cursor.execute("""
+                INSERT INTO Johnny_role (role_id, role_name, allow_create, allow_change, allow_pickup, 
+                                       allow_setting, allow_report, allow_user_manage)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (next_role_id, role_name, allow_create, allow_change, allow_pickup, 
+                  allow_setting, allow_report, allow_user_manage))
+            conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
+
+    @classmethod
+    def update_role(cls, role_id, role_name=None, allow_create=None, allow_change=None, allow_pickup=None, 
+                   allow_setting=None, allow_report=None, allow_user_manage=None):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            # Check if role exists
+            cursor.execute("SELECT role_id FROM Johnny_role WHERE role_id = ?", (role_id,))
+            if not cursor.fetchone():
+                raise ValueError("Role not found")
+            
+            # Build dynamic update query
+            updates = []
+            params = []
+            
+            if role_name is not None:
+                updates.append("role_name = ?")
+                params.append(role_name)
+            
+            if allow_create is not None:
+                updates.append("allow_create = ?")
+                params.append(allow_create)
+            
+            if allow_change is not None:
+                updates.append("allow_change = ?")
+                params.append(allow_change)
+            
+            if allow_pickup is not None:
+                updates.append("allow_pickup = ?")
+                params.append(allow_pickup)
+            
+            if allow_setting is not None:
+                updates.append("allow_setting = ?")
+                params.append(allow_setting)
+            
+            if allow_report is not None:
+                updates.append("allow_report = ?")
+                params.append(allow_report)
+            
+            if allow_user_manage is not None:
+                updates.append("allow_user_manage = ?")
+                params.append(allow_user_manage)
+            
+            if updates:
+                params.append(role_id)
+                query = f"UPDATE Johnny_role SET {', '.join(updates)} WHERE role_id = ?"
+                cursor.execute(query, params)
+                conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
+
+    @classmethod
+    def delete_role(cls, role_id):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            # Check if role exists
+            cursor.execute("SELECT role_id FROM Johnny_role WHERE role_id = ?", (role_id,))
+            if not cursor.fetchone():
+                raise ValueError("Role not found")
+            
+            # Check if any users are using this role
+            cursor.execute("SELECT COUNT(*) FROM Johnny_user WHERE role_id = ?", (role_id,))
+            user_count = cursor.fetchone()[0]
+            if user_count > 0:
+                raise ValueError("Cannot delete role that is being used by users")
+            
+            cursor.execute("DELETE FROM Johnny_role WHERE role_id = ?", (role_id,))
+            conn.commit()
         finally:
             cursor.close()
             conn.close()
