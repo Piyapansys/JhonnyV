@@ -157,8 +157,15 @@ class AuthModel:
                 cursor.execute("SELECT token_expire FROM Johnny_user WHERE user_email = ?", (user_email,))
                 token_expire = cursor.fetchone()[0]
                 
-                if token_expire and get_current_datetime() > token_expire:
-                    return None
+                if token_expire:
+                    # Convert token_expire to timezone-aware datetime if it's naive
+                    if token_expire.tzinfo is None:
+                        # Assume it's in Thailand timezone if it's naive
+                        thailand_tz = pytz.timezone('Asia/Bangkok')
+                        token_expire = thailand_tz.localize(token_expire)
+                    
+                    if get_current_datetime() > token_expire:
+                        return None
                 
                 return {
                     'user_email': user_email,
