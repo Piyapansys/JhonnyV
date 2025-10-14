@@ -3,7 +3,7 @@ from flask_restx import Namespace, Resource, fields
 from app.controllers import DocController
 from app.middleware.auth_middleware import token_required, role_required
 
-doc_api = Namespace('api/docs', description='Document operations')
+doc_api = Namespace('docs', description='Document operations')
 
 # Model for storing documents in a box
 doc_model = doc_api.model('DocsModel', {

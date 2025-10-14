@@ -3,7 +3,7 @@ from flask_restx import Namespace, Resource
 from app.controllers import SearchController
 from app.middleware.auth_middleware import token_required
 
-search_api = Namespace('api/search', description='Search operations')
+search_api = Namespace('search', description='Search operations')
 
 @search_api.route('')
 class DocSearchResource(Resource):

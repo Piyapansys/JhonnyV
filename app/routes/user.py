@@ -3,7 +3,7 @@ from flask_restx import Namespace, Resource
 from app.controllers import UserController
 from app.middleware.auth_middleware import token_required, role_required
 
-user_api = Namespace('api/user', description='User operations')
+user_api = Namespace('user', description='User operations')
 
 @user_api.route('/check-user')
 class UserCheckResource(Resource):
