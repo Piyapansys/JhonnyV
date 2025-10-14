@@ -443,9 +443,9 @@ class DocInBox:
         cursor = conn.cursor()
         try:
             cursor.execute("""
-                INSERT INTO Johnny_approvalRequest (approval_id, requester_email, approver_email, approval_detail, requester_request_at, approval_status)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (approval_id, requester_email, approver_email, approval_detail, datetime.now(), 'pending'))
+                INSERT INTO Johnny_approvalRequest (approval_id, requester_email, approver_email, approval_detail, requester_request_at, approval_status, approval_response)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (approval_id, requester_email, approver_email, approval_detail, datetime.now(), 'pending', None))
             conn.commit()
         finally:
             cursor.close()
@@ -487,16 +487,41 @@ class DocInBox:
             conn.close()
 
     @classmethod
-    def update_approval_status(cls, approval_id, approval_status, approver_comment):
+    def update_approval_status(cls, approval_id, approval_status, approver_comment, approval_response=None):
         conn = get_db_connection()
         cursor = conn.cursor()
         try:
+            print(f"=== DEBUG: update_approval_status ===")
+            print(f"approval_id: {approval_id}")
+            print(f"approval_status: {approval_status}")
+            print(f"approver_comment: {approver_comment}")
+            print(f"approval_response type: {type(approval_response)}")
+            print(f"approval_response length: {len(approval_response) if approval_response else 'None'}")
+            print(f"approval_response preview: {approval_response[:200] if approval_response else 'None'}...")
+            
             cursor.execute("""
                 UPDATE Johnny_approvalRequest 
-                SET approval_status = ?, approver_action_at = ?, approver_comment = ?
+                SET approval_status = ?, approver_action_at = ?, approver_comment = ?, approval_response = ?
                 WHERE approval_id = ?
-            """, (approval_status, datetime.now(), approver_comment, approval_id))
+            """, (approval_status, datetime.now(), approver_comment, approval_response, approval_id))
+            
+            # Check if any rows were affected
+            rows_affected = cursor.rowcount
+            print(f"Rows affected by UPDATE: {rows_affected}")
+            
             conn.commit()
+            print("=== DEBUG: Commit successful ===")
+            
+            # Verify the update by reading back the data
+            cursor.execute("SELECT approval_response FROM Johnny_approvalRequest WHERE approval_id = ?", (approval_id,))
+            result = cursor.fetchone()
+            print(f"Verification - approval_response in DB: {result[0] if result and result[0] else 'NULL'}")
+            
+        except Exception as e:
+            print(f"=== DEBUG: Error in update_approval_status ===")
+            print(f"Error: {str(e)}")
+            print(f"Error type: {type(e)}")
+            raise e
         finally:
             cursor.close()
             conn.close()

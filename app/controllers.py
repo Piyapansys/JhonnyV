@@ -179,20 +179,41 @@ class DocController:
             return {"error": str(e)}, 500
 
     def update_request_status(data):
+        print(f"=== DEBUG: update_request_status controller ===")
+        print(f"Received data keys: {list(data.keys())}")
+        print(f"Full data: {data}")
+        
         approval_id = data.get('approval_id')
         approval_status = data.get('approval_status')
         approver_comment = data.get('approver_comment')
+        approval_response = data.get('approval_response')
+        
+        print(f"Extracted values:")
+        print(f"  approval_id: {approval_id}")
+        print(f"  approval_status: {approval_status}")
+        print(f"  approver_comment: {approver_comment}")
+        print(f"  approval_response exists: {approval_response is not None}")
+        print(f"  approval_response type: {type(approval_response)}")
+        if approval_response:
+            print(f"  approval_response length: {len(approval_response)}")
+            print(f"  approval_response preview: {approval_response[:200]}...")
         
         if not approval_id or not approval_status:
+            print("ERROR: Missing required fields")
             return {"message": "Missing required fields"}, 400
             
         if approval_status not in ['approved', 'rejected']:
+            print("ERROR: Invalid approval status")
             return {"message": "Invalid approval status. Must be 'approved' or 'rejected'"}, 400
             
         try:
-            DocInBox.update_approval_status(approval_id, approval_status, approver_comment)
+            print("Calling DocInBox.update_approval_status...")
+            DocInBox.update_approval_status(approval_id, approval_status, approver_comment, approval_response)
+            print("DocInBox.update_approval_status completed successfully")
             return {"message": "Approval request status updated successfully"}, 200
         except Exception as e:
+            print(f"ERROR in update_request_status: {str(e)}")
+            print(f"ERROR type: {type(e)}")
             return {"error": str(e)}, 500
 
     # def store_doc(data):

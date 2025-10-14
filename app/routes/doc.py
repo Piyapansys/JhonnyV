@@ -72,6 +72,7 @@ update_status_model = doc_api.model('UpdateRequestStatusModel', {
     'approval_id': fields.String(required=True, description='approval_id'),
     'approval_status': fields.String(required=True, description='approval_status (approved or rejected)'),
     'approver_comment': fields.String(required=False, description='approver_comment'),
+    'approval_response': fields.String(required=False, description='approval_response'),
 })
         
 @doc_api.route('/pickup-requests')

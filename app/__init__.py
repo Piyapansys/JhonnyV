@@ -1,6 +1,7 @@
-from flask import Flask
+from flask import Flask, send_from_directory
 from flask_restx import Api
 from flask_cors import CORS
+import os
 from app.routes.box import box_api
 from app.routes.doc import doc_api
 from app.routes.search import search_api
@@ -34,14 +35,34 @@ def create_app():
     api.add_namespace(user_api)
     api.add_namespace(auth_api)
     
-    # Add root route
-    @app.route('/')
-    def index():
-        return {
-            "message": "Johnny Voucher API is running!",
-            "version": "1.0",
-            "docs": "/api/docs",
-            "status": "active"
-        }
+    # SPA fallback route - serve index.html for all non-API routes
+    @app.route('/', defaults={'path': ''})
+    @app.route('/<path:path>')
+    def serve_spa(path=''):
+        # If the path starts with /api, let Flask handle it normally
+        if path.startswith('api/'):
+            return {"error": "API endpoint not found"}, 404
+        
+        # For root path, show API info
+        if path == '':
+            return {
+                "message": "Johnny Voucher API is running!",
+                "version": "1.0",
+                "docs": "/api/docs",
+                "status": "active"
+            }
+        
+        # For all other paths, serve the frontend index.html
+        frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'Johnny_Frontend', 'dist')
+        
+        # Check if the file exists in the dist folder
+        if os.path.exists(frontend_path) and os.path.exists(os.path.join(frontend_path, 'index.html')):
+            return send_from_directory(frontend_path, 'index.html')
+        else:
+            # Fallback if frontend is not built
+            return {
+                "message": "Frontend not built. Please run 'npm run build' in Johnny_Frontend directory",
+                "api_docs": "/api/docs"
+            }
     
     return app
