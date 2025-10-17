@@ -285,7 +285,12 @@ class DocController:
                 return {"message": "Box not found"}, 404
 
             results = []  # เก็บผลลัพธ์ของเอกสารแต่ละตัว
-
+            
+            # For large datasets, use bulk processing
+            if len(documents) > 50:
+                return DocController._bulk_store_doc(box_id, documents, user_email, box_data)
+            
+            # Original sequential processing for small datasets
             for doc in documents:
                 try:
                     doc_year = doc[:4]
@@ -337,7 +342,6 @@ class DocController:
                         "reasons": [str(e)]
                     })
 
-
             return {
                 "message": "Documents processed",
                 "results": results,
@@ -346,6 +350,109 @@ class DocController:
 
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500
+
+    def _bulk_store_doc(box_id, documents, user_email, box_data):
+        """Optimized bulk processing for large document sets"""
+        try:
+            # Prepare document data for bulk operations
+            valid_docs = []
+            invalid_docs = []
+            
+            # Validate all documents first
+            for doc in documents:
+                try:
+                    doc_year = doc[:4]
+                    doc_type_raw = doc[4:7]
+
+                    if doc_type_raw[2] == "0":
+                        doctype_id = doc_type_raw[:2]
+                    else:
+                        doctype_id = doc_type_raw
+
+                    errors = []
+
+                    # ตรวจสอบ year
+                    if str(box_data.box_year) != doc_year:
+                        errors.append("ปีของเอกสารไม่ตรงกับปีของกล่อง")
+
+                    # ตรวจสอบ type
+                    if str(box_data.boxtype_id) != doctype_id:
+                        errors.append("ประเภทของเอกสารไม่ตรงกับประเภทของกล่อง")
+
+                    if not errors:
+                        valid_docs.append({
+                            'doc_id': doc,
+                            'doc_year': doc_year,
+                            'doctype_id': doctype_id,
+                            'doc_number': doc[4:13]
+                        })
+                    else:
+                        invalid_docs.append({
+                            "doc": doc,
+                            "status": "error",
+                            "reasons": errors
+                        })
+
+                except Exception as e:
+                    invalid_docs.append({
+                        "doc": doc,
+                        "status": "error",
+                        "reasons": [str(e)]
+                    })
+
+            # Bulk create documents
+            created_docs = []
+            if valid_docs:
+                try:
+                    # Prepare document data for JohnnyDoc.bulk_create_docs
+                    doc_data_for_bulk = [{
+                        'doc_year': doc['doc_year'],
+                        'doctype_id': doc['doctype_id'],
+                        'doc_number': doc['doc_number']
+                    } for doc in valid_docs]
+                    
+                    created_docs = JohnnyDoc.bulk_create_docs(doc_data_for_bulk, user_email)
+                    
+                    # Prepare DocInBox data
+                    docinbox_data = [{
+                        'id': uuid4().hex,
+                        'doc_id': doc['doc_id']
+                    } for doc in valid_docs]
+                    
+                    # Bulk create DocInBox entries
+                    DocInBox.bulk_create_docInBox(docinbox_data, box_id)
+                    
+                except Exception as e:
+                    # If bulk operations fail, add all valid docs as errors
+                    for doc in valid_docs:
+                        invalid_docs.append({
+                            "doc": doc['doc_id'],
+                            "status": "error",
+                            "reasons": [str(e)]
+                        })
+                    valid_docs = []
+
+            # Prepare results
+            results = []
+            
+            # Add successful documents
+            for doc in valid_docs:
+                results.append({
+                    "doc": doc['doc_id'],
+                    "status": "success"
+                })
+            
+            # Add failed documents
+            results.extend(invalid_docs)
+
+            return {
+                "message": "Documents processed in bulk",
+                "results": results,
+                "box_id": box_id
+            }, 200
+
+        except Exception as e:
+            return {"message": f"An error occurred in bulk processing: {str(e)}"}, 500
 
     def remove_docInBox(data):
         box_id = data.get('box_id')

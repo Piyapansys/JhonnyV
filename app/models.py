@@ -394,6 +394,99 @@ class DocInBox:
             conn.close()
 
     @classmethod
+    def bulk_create_docInBox(cls, documents_data, box_id):
+        """
+        Bulk create multiple DocInBox entries efficiently
+        documents_data: list of dict with keys: id, doc_id
+        """
+        if not documents_data:
+            return []
+            
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        created_entries = []
+        errors = []
+        
+        try:
+            # Prepare bulk data
+            insert_data = []
+            update_data = []
+            
+            # Check existing documents first
+            doc_ids = [doc['doc_id'] for doc in documents_data]
+            placeholders = ','.join(['?'] * len(doc_ids))
+            
+            cursor.execute(f"SELECT doc_id, is_removed, box_id FROM Johnny_docInBox WHERE doc_id IN ({placeholders})", tuple(doc_ids))
+            existing_docs = {row[0]: {'is_removed': row[1], 'box_id': row[2]} for row in cursor.fetchall()}
+            
+            for doc_data in documents_data:
+                doc_id = doc_data['doc_id']
+                id = doc_data['id']
+                
+                if doc_id in existing_docs:
+                    existing = existing_docs[doc_id]
+                    if existing['is_removed'] == 1:
+                        # Document was removed, reactivate it
+                        update_data.append((0, doc_id, box_id))
+                    else:
+                        # Document exists in another box
+                        errors.append(f"เอกสารเลขนี้ {doc_id} มีอยู่ในกล่อง {existing['box_id']} แล้ว")
+                        continue
+                else:
+                    # New document, insert it
+                    insert_data.append((id, doc_id, box_id, 0))
+                
+                created_entries.append(doc_id)
+            
+            # Bulk insert new entries
+            if insert_data:
+                cursor.executemany("""
+                    INSERT INTO Johnny_docInBox (id, doc_id, box_id, is_removed)
+                    VALUES (?, ?, ?, ?)
+                """, insert_data)
+            
+            # Bulk update existing entries
+            if update_data:
+                cursor.executemany("""
+                    UPDATE Johnny_docInBox
+                    SET is_removed = ?
+                    WHERE doc_id = ? AND box_id = ?
+                """, update_data)
+            
+            conn.commit()
+            
+            if errors:
+                raise ValueError("; ".join(errors))
+                
+            return created_entries
+            
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            cursor.close()
+            conn.close()
+
+    @classmethod
+    def get_doc_by_id(cls, doc_id):
+        """Get document info by doc_id"""
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT doc_id, box_id, is_removed FROM Johnny_docInBox WHERE doc_id = ?", (doc_id,))
+            row = cursor.fetchone()
+            if row:
+                return {
+                    'doc_id': row[0],
+                    'box_id': row[1],
+                    'is_removed': row[2]
+                }
+            return None
+        finally:
+            cursor.close()
+            conn.close()
+
+    @classmethod
     def remove_docInBox(cls, doc_id, box_id, user_email):
         conn = get_db_connection()
         cursor = conn.cursor()

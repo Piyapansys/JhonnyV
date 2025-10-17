@@ -275,6 +275,66 @@ class JohnnyDoc:
             conn.close()
 
     @classmethod
+    def bulk_create_docs(cls, documents_data, store_by):
+        """
+        Bulk create multiple documents efficiently
+        documents_data: list of dict with keys: doc_year, doctype_id, doc_number
+        """
+        if not documents_data:
+            return []
+            
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        created_docs = []
+        
+        try:
+            # Prepare bulk data
+            insert_data = []
+            update_data = []
+            
+            for doc_data in documents_data:
+                doc_year = doc_data['doc_year']
+                doctype_id = doc_data['doctype_id'] 
+                doc_number = doc_data['doc_number']
+                doc_id = f"{doc_year}{doc_number}"
+                
+                # Check if document exists
+                cursor.execute("SELECT doc_id FROM Johnny_doc WHERE doc_id = ?", (doc_id,))
+                existing_doc = cursor.fetchone()
+                
+                if existing_doc:
+                    update_data.append((get_current_datetime() + timedelta(hours=7), store_by, doc_id))
+                else:
+                    insert_data.append((doc_id, doctype_id, doc_year, doc_number, store_by, get_current_datetime()))
+                
+                created_docs.append(doc_id)
+            
+            # Bulk insert new documents
+            if insert_data:
+                cursor.executemany("""
+                    INSERT INTO Johnny_doc (doc_id, doctype_id, doc_year, doc_number, store_by, store_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, insert_data)
+            
+            # Bulk update existing documents
+            if update_data:
+                cursor.executemany("""
+                    UPDATE Johnny_doc 
+                    SET store_at = ?, store_by = ? 
+                    WHERE doc_id = ?
+                """, update_data)
+            
+            conn.commit()
+            return created_docs
+            
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            cursor.close()
+            conn.close()
+
+    @classmethod
     def get_document_detail(cls):
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -540,39 +600,60 @@ class Search:
         conn = get_db_connection()
         cursor = conn.cursor()
         try:
-            # สร้าง SQL query พื้นฐาน
+            # สร้าง SQL query พื้นฐาน - รวมเอกสารในกล่องด้วย
             query = """
-                SELECT [box_id]
-                    ,[box_year]
-                    ,[boxtype_id]
-                    ,[box_number]
-                    ,[update_at]
-                    ,[update_by]
-                    ,[create_at]
-                    ,[create_by]
-                    ,Johnny_location.location_name AS location
-                FROM [dbo].[Johnny_box]
-                LEFT JOIN [dbo].[Johnny_location] ON Johnny_box.location_id = Johnny_location.location_id
+                SELECT doc.doc_id
+                    ,doc.doc_year
+                    ,doc.doctype_id
+                    ,doc.doc_number
+                    ,doc.remove_at
+                    ,doc.remove_by
+                    ,doc.store_at
+                    ,doc.store_by
+                    ,docinbox.box_id
+                    ,docinbox.is_removed
+                    ,box.box_year
+                    ,box.boxtype_id
+                    ,box.box_number
+                    ,box.update_at
+                    ,box.update_by
+                    ,box.create_at
+                    ,box.create_by
+                    ,location.location_name AS location
+                FROM [dbo].[Johnny_box] box
+                LEFT JOIN [dbo].[Johnny_location] location ON box.location_id = location.location_id
+                LEFT JOIN [dbo].[Johnny_docInBox] docinbox ON box.box_id = docinbox.box_id
+                LEFT JOIN [dbo].[Johnny_doc] doc ON docinbox.doc_id = doc.doc_id
                 WHERE 1=1
             """
 
             # เพิ่มเงื่อนไขใน query ตามพารามิเตอร์ที่ได้รับ
             if box_id:
-                query += f" AND box_id LIKE '%{box_id}%'"
+                if isinstance(box_id, list):
+                    placeholders = ','.join(['?'] * len(box_id))
+                    query += f" AND box.box_id IN ({placeholders})"
+                else:
+                    query += f" AND box.box_id LIKE '%{box_id}%'"
             if box_year:
-                query += f" AND box_year = '{box_year}'"
+                query += f" AND box.box_year = '{box_year}'"
             if boxtype_id:
-                query += f" AND boxtype_id = '{boxtype_id}'"
+                query += f" AND box.boxtype_id = '{boxtype_id}'"
             if location:
-                query += f" AND Johnny_location.name LIKE '%{location}%'"
+                query += f" AND location.location_name LIKE '%{location}%'"
 
-            cursor.execute(query)  # รัน query ที่สร้างขึ้น
+            # เรียงลำดับตาม box_id และ doc_id
+            query += " ORDER BY box.box_id, doc.doc_id"
+
+            if isinstance(box_id, list):
+                cursor.execute(query, tuple(box_id))
+            else:
+                cursor.execute(query)
+
             rows = cursor.fetchall()
             if not rows:
                 return []  # หากไม่มีข้อมูล ให้คืนค่าเป็น list ว่างๆ
 
             columns = [column[0] for column in cursor.description]
-
 
             def convert_datetime(value):
                 if isinstance(value, datetime):
