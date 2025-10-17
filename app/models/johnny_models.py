@@ -476,6 +476,80 @@ class DocInBox:
             conn.close()
 
     @classmethod
+    def bulk_create_docInBox(cls, documents_data, box_id):
+        """
+        Bulk create multiple DocInBox entries efficiently
+        documents_data: list of dict with keys: id, doc_id
+        """
+        if not documents_data:
+            return []
+            
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        created_entries = []
+        errors = []
+        
+        try:
+            for doc_data in documents_data:
+                try:
+                    # Check if document already exists
+                    cursor.execute("SELECT * FROM Johnny_docInBox WHERE doc_id = ?", (doc_data['doc_id'],))
+                    row = cursor.fetchone()
+                    
+                    if row:
+                        row_dict = dict(zip([column[0] for column in cursor.description], row))
+                        if row_dict["is_removed"] == 1:
+                            # Reactivate the document
+                            cursor.execute("""
+                                UPDATE Johnny_docInBox
+                                SET is_removed = 0
+                                WHERE doc_id = ? AND box_id = ?
+                            """, (doc_data['doc_id'], box_id))
+                            conn.commit()
+                            created_entries.append({
+                                'id': doc_data['id'],
+                                'doc_id': doc_data['doc_id'],
+                                'box_id': box_id,
+                                'status': 'reactivated'
+                            })
+                        else:
+                            errors.append({
+                                'doc_id': doc_data['doc_id'],
+                                'error': f"เอกสารเลขนี้ {doc_data['doc_id']} มีอยู่ในกล่อง {row_dict['box_id']} แล้ว"
+                            })
+                    else:
+                        # Create new entry
+                        cursor.execute("""
+                            INSERT INTO Johnny_docInBox (id, doc_id, box_id, is_removed)
+                            VALUES (?, ?, ?, ?)
+                        """, (doc_data['id'], doc_data['doc_id'], box_id, 0))
+                        conn.commit()
+                        created_entries.append({
+                            'id': doc_data['id'],
+                            'doc_id': doc_data['doc_id'],
+                            'box_id': box_id,
+                            'status': 'created'
+                        })
+                        
+                except Exception as e:
+                    errors.append({
+                        'doc_id': doc_data['doc_id'],
+                        'error': str(e)
+                    })
+                    
+        except Exception as e:
+            conn.rollback()
+            raise  # Re-raise the exception to be caught by the controller
+        finally:
+            cursor.close()
+            conn.close()
+            
+        return {
+            'created_entries': created_entries,
+            'errors': errors
+        }
+
+    @classmethod
     def remove_docInBox(cls, doc_id, box_id, user_email):
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -610,7 +684,7 @@ class Search:
                     ,doc.remove_by
                     ,doc.store_at
                     ,doc.store_by
-                    ,docinbox.box_id
+                    ,box.box_id
                     ,docinbox.is_removed
                     ,box.box_year
                     ,box.boxtype_id
