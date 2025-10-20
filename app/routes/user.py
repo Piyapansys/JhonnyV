@@ -129,8 +129,10 @@ class DeleteUserResource(Resource):
     def delete(self, user_data=None):
         """delete user"""
         try:
-            data = request.json
-            result = UserController.delete_user(data)
+            user_email = request.args.get('user_email')
+            if not user_email:
+                return {"message": "user_email is required"}, 400
+            result = UserController.delete_user({'user_email': user_email})
             return result[0], result[1]
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500
@@ -177,8 +179,10 @@ class DeleteRoleResource(Resource):
     def delete(self, user_data=None):
         """delete role"""
         try:
-            data = request.json
-            result = UserController.delete_role(data)
+            role_id = request.args.get('role_id')
+            if not role_id:
+                return {"message": "role_id is required"}, 400
+            result = UserController.delete_role({'role_id': int(role_id)})
             return result[0], result[1]
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500
