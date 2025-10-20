@@ -60,6 +60,10 @@ boxtype_delete_model = box_api.model('BoxTypeDeleteModel', {
 
 @box_api.route('/box-types')
 class BoxTypesResource(Resource):
+    def options(self):
+        """Handle preflight OPTIONS request"""
+        return '', 200
+    
     @token_required
     def get(self, user_data=None):
         """get all box types"""
@@ -117,6 +121,10 @@ location_update_model = box_api.model('LocationUpdateModel', {
 
 @box_api.route('/location')
 class BoxLocationResource(Resource):
+    def options(self):
+        """Handle preflight OPTIONS request"""
+        return '', 200
+    
     @token_required
     def get(self, user_data=None):
         """Get all box locations"""

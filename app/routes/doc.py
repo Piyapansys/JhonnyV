@@ -41,6 +41,10 @@ class DocRemoveResource(Resource):
         
 @doc_api.route('/getDocDetail')
 class DocGetResource(Resource):
+    def options(self):
+        """Handle preflight OPTIONS request"""
+        return '', 200
+    
     @token_required
     def get(self, user_data=None):
         """GET documents Detail"""        
@@ -52,6 +56,10 @@ class DocGetResource(Resource):
         
 @doc_api.route('/getAllDocument')
 class DocGetAllResource(Resource):
+    def options(self):
+        """Handle preflight OPTIONS request"""
+        return '', 200
+    
     @token_required
     def get(self, user_data=None):
         """GET All Documents Detail"""        
@@ -89,6 +97,10 @@ class PickupApproveResource(Resource):
             return {"message": f"An error occurred: {str(e)}"}, 500
 
 
+    def options_get(self):
+        """Handle preflight OPTIONS request for GET"""
+        return '', 200
+    
     @doc_api.doc(params={
         'approval_id': 'approval_id',
         'requester_email': 'requester_email',

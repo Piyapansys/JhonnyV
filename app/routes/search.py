@@ -7,6 +7,10 @@ search_api = Namespace('api/search', description='Search operations')
 
 @search_api.route('')
 class DocSearchResource(Resource):
+    def options(self):
+        """Handle preflight OPTIONS request"""
+        return '', 200
+    
     @token_required
     def get(self, user_data=None):
         """Search via query string"""
@@ -23,6 +27,10 @@ class DocSearchResource(Resource):
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500
 
+    def options_post(self):
+        """Handle preflight OPTIONS request for POST"""
+        return '', 200
+    
     @token_required
     def post(self, user_data=None):
         """Search via JSON payload"""

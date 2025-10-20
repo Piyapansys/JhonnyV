@@ -23,6 +23,10 @@ class UserCheckResource(Resource):
 
 @user_api.route('/get-user')
 class UserManageResource(Resource):
+    def options(self):
+        """Handle preflight OPTIONS request"""
+        return '', 200
+    
     @user_api.doc(params={
         'user_email': 'user_email',
     })
@@ -40,6 +44,10 @@ class UserManageResource(Resource):
 
 @user_api.route('/get-approver')
 class ApproverResource(Resource):
+    def options(self):
+        """Handle preflight OPTIONS request"""
+        return '', 200
+    
     @token_required
     def get(self, user_data=None):
         """get approver"""
@@ -51,6 +59,10 @@ class ApproverResource(Resource):
 
 @user_api.route('/get-all-roles')
 class GetAllRolesResource(Resource):
+    def options(self):
+        """Handle preflight OPTIONS request"""
+        return '', 200
+    
     @token_required
     def get(self, user_data=None):
         """get all roles"""
@@ -62,6 +74,10 @@ class GetAllRolesResource(Resource):
 
 @user_api.route('/get-all-users')
 class GetAllUsersResource(Resource):
+    def options(self):
+        """Handle preflight OPTIONS request"""
+        return '', 200
+    
     @token_required
     def get(self, user_data=None):
         """get all users"""
@@ -73,6 +89,10 @@ class GetAllUsersResource(Resource):
 
 @user_api.route('/create-user')
 class CreateUserResource(Resource):
+    def options(self):
+        """Handle preflight OPTIONS request"""
+        return '', 200
+    
     @token_required
     def post(self, user_data=None):
         """create user"""
@@ -85,6 +105,10 @@ class CreateUserResource(Resource):
 
 @user_api.route('/update-user')
 class UpdateUserResource(Resource):
+    def options(self):
+        """Handle preflight OPTIONS request"""
+        return '', 200
+    
     @token_required
     def put(self, user_data=None):
         """update user"""
@@ -97,6 +121,10 @@ class UpdateUserResource(Resource):
 
 @user_api.route('/delete-user')
 class DeleteUserResource(Resource):
+    def options(self):
+        """Handle preflight OPTIONS request"""
+        return '', 200
+    
     @token_required
     def delete(self, user_data=None):
         """delete user"""
@@ -109,6 +137,10 @@ class DeleteUserResource(Resource):
 
 @user_api.route('/create-role')
 class CreateRoleResource(Resource):
+    def options(self):
+        """Handle preflight OPTIONS request"""
+        return '', 200
+    
     @token_required
     def post(self, user_data=None):
         """create role"""
@@ -121,6 +153,10 @@ class CreateRoleResource(Resource):
 
 @user_api.route('/update-role')
 class UpdateRoleResource(Resource):
+    def options(self):
+        """Handle preflight OPTIONS request"""
+        return '', 200
+    
     @token_required
     def put(self, user_data=None):
         """update role"""
@@ -133,6 +169,10 @@ class UpdateRoleResource(Resource):
 
 @user_api.route('/delete-role')
 class DeleteRoleResource(Resource):
+    def options(self):
+        """Handle preflight OPTIONS request"""
+        return '', 200
+    
     @token_required
     def delete(self, user_data=None):
         """delete role"""
