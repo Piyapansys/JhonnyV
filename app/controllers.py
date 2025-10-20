@@ -548,7 +548,12 @@ class SearchController:
         category = data.get('category')
         try:
             if category == "box":
-                res = Search.search_boxes(ids, year, type, location)
+                # ค้นหากล่องที่มีเอกสาร
+                boxes_with_docs = Search.search_boxes(ids, year, type, location)
+                # ค้นหากล่องที่ไม่มีเอกสาร
+                boxes_without_docs = Search.search_boxes_without_documents(ids, year, type, location)
+                # รวมผลลัพธ์
+                res = boxes_with_docs + boxes_without_docs
             elif category == "document":
                 res = Search.search_documents(ids, year, type, location)
             else:

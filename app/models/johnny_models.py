@@ -696,7 +696,7 @@ class Search:
                     ,location.location_name AS location
                 FROM [dbo].[Johnny_box] box
                 LEFT JOIN [dbo].[Johnny_location] location ON box.location_id = location.location_id
-                LEFT JOIN [dbo].[Johnny_docInBox] docinbox ON box.box_id = docinbox.box_id
+                LEFT JOIN [dbo].[Johnny_docInBox] docinbox ON box.box_id = docinbox.box_id AND docinbox.is_removed = 0
                 LEFT JOIN [dbo].[Johnny_doc] doc ON docinbox.doc_id = doc.doc_id
                 WHERE 1=1
             """
@@ -717,6 +717,72 @@ class Search:
 
             # เรียงลำดับตาม box_id และ doc_id
             query += " ORDER BY box.box_id, doc.doc_id"
+
+            if isinstance(box_id, list):
+                cursor.execute(query, tuple(box_id))
+            else:
+                cursor.execute(query)
+
+            rows = cursor.fetchall()
+            if not rows:
+                return []  # หากไม่มีข้อมูล ให้คืนค่าเป็น list ว่างๆ
+
+            columns = [column[0] for column in cursor.description]
+
+            def convert_datetime(value):
+                if isinstance(value, datetime):
+                    return value.isoformat()  # หรือใช้ str(value) ก็ได้
+                return value
+            
+            # แปลงแต่ละแถวให้เป็น dictionary และแปลง datetime ให้เป็น string
+            result = [dict(zip(columns, [convert_datetime(value) for value in row])) for row in rows]
+            return result
+        except Exception as e:
+            print(f"Database error: {str(e)}")  # Add logging
+            raise  # Re-raise the exception to be caught by the controller
+        finally:
+            cursor.close()
+            conn.close()
+
+    @classmethod
+    def search_boxes_without_documents(cls, box_id=None, box_year=None, boxtype_id=None, location=None):
+        """ค้นหากล่องที่ไม่มีเอกสาร"""
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            # สร้าง SQL query สำหรับกล่องที่ไม่มีเอกสาร
+            query = """
+                SELECT box.box_id
+                    ,box.box_year
+                    ,box.boxtype_id
+                    ,box.box_number
+                    ,box.update_at
+                    ,box.update_by
+                    ,box.create_at
+                    ,box.create_by
+                    ,location.location_name AS location
+                FROM [dbo].[Johnny_box] box
+                LEFT JOIN [dbo].[Johnny_location] location ON box.location_id = location.location_id
+                LEFT JOIN [dbo].[Johnny_docInBox] docinbox ON box.box_id = docinbox.box_id AND docinbox.is_removed = 0
+                WHERE docinbox.box_id IS NULL
+            """
+
+            # เพิ่มเงื่อนไขใน query ตามพารามิเตอร์ที่ได้รับ
+            if box_id:
+                if isinstance(box_id, list):
+                    placeholders = ','.join(['?'] * len(box_id))
+                    query += f" AND box.box_id IN ({placeholders})"
+                else:
+                    query += f" AND box.box_id LIKE '%{box_id}%'"
+            if box_year:
+                query += f" AND box.box_year = '{box_year}'"
+            if boxtype_id:
+                query += f" AND box.boxtype_id = '{boxtype_id}'"
+            if location:
+                query += f" AND location.location_name LIKE '%{location}%'"
+
+            # เรียงลำดับตาม box_id
+            query += " ORDER BY box.box_id"
 
             if isinstance(box_id, list):
                 cursor.execute(query, tuple(box_id))
