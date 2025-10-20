@@ -1060,16 +1060,12 @@ class UserManagement:
             if cursor.fetchone():
                 raise ValueError("Role with this name already exists")
             
-            # Get next role_id
-            cursor.execute("SELECT MAX(role_id) FROM Johnny_role")
-            result = cursor.fetchone()
-            next_role_id = (result[0] or 0) + 1
-            
+            # Insert new role without specifying role_id (let identity column handle it)
             cursor.execute("""
-                INSERT INTO Johnny_role (role_id, role_name, allow_create, allow_change, allow_pickup, 
+                INSERT INTO Johnny_role (role_name, allow_create, allow_change, allow_pickup, 
                                        allow_setting, allow_report, allow_user_manage)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (next_role_id, role_name, allow_create, allow_change, allow_pickup, 
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (role_name, allow_create, allow_change, allow_pickup, 
                   allow_setting, allow_report, allow_user_manage))
             conn.commit()
         finally:
