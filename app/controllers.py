@@ -327,13 +327,20 @@ class DocController:
                     # ผ่าน validation → บันทึก
                     created_doc = JohnnyDoc.create_doc(doc_year, doctype_id, doc[4:13], user_email)
                     uuid_id = uuid4().hex
-                    DocInBox.create_docInBox(uuid_id, doc, box_id)
-
-                    results.append({
-                        "doc": doc,
-                        "status": "success",
-                        # "created_doc": created_doc
-                    })
+                    success, message = DocInBox.create_docInBox(uuid_id, doc, box_id)
+                    
+                    if success:
+                        results.append({
+                            "doc": doc,
+                            "status": "success",
+                            "message": message
+                        })
+                    else:
+                        results.append({
+                            "doc": doc,
+                            "status": "error",
+                            "reasons": [message]
+                        })
 
                 except Exception as e:
                     results.append({
@@ -420,7 +427,22 @@ class DocController:
                     } for doc in valid_docs]
                     
                     # Bulk create DocInBox entries
-                    DocInBox.bulk_create_docInBox(docinbox_data, box_id)
+                    docinbox_result = DocInBox.bulk_create_docInBox(docinbox_data, box_id)
+                    
+                    # Handle any errors from DocInBox creation
+                    if docinbox_result.get('errors'):
+                        for error in docinbox_result['errors']:
+                            # Find and update the corresponding valid_doc entry
+                            doc_id = error['doc_id']
+                            for i, valid_doc in enumerate(valid_docs):
+                                if valid_doc['doc_id'] == doc_id:
+                                    invalid_docs.append({
+                                        "doc": doc_id,
+                                        "status": "error",
+                                        "reasons": [error['error']]
+                                    })
+                                    valid_docs.pop(i)
+                                    break
                     
                 except Exception as e:
                     # If bulk operations fail, add all valid docs as errors
@@ -498,13 +520,20 @@ class DocController:
                         continue
 
                     # ผ่าน validation → บันทึก
-                    removed_docs = DocInBox.remove_docInBox(doc, box_id, user_email)
-
-                    results.append({
-                        "doc": doc,
-                        "status": "success",
-                        # "removed_doc": removed_docs
-                    })
+                    success, message = DocInBox.remove_docInBox(doc, box_id, user_email)
+                    
+                    if success:
+                        results.append({
+                            "doc": doc,
+                            "status": "success",
+                            "message": message
+                        })
+                    else:
+                        results.append({
+                            "doc": doc,
+                            "status": "error",
+                            "reasons": [message]
+                        })
 
                 except Exception as e:
                     results.append({

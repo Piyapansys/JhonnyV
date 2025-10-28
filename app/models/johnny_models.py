@@ -447,6 +447,10 @@ class DocInBox:
     
     @classmethod
     def create_docInBox(cls, id, doc_id, box_id):
+        """
+        Create docInBox entry with improved error handling.
+        Returns tuple: (success: bool, message: str)
+        """
         conn = get_db_connection()
         cursor = conn.cursor()
         try:
@@ -462,15 +466,19 @@ class DocInBox:
                         WHERE doc_id = ? AND box_id = ?
                     """, (doc_id, box_id))
                     conn.commit()
+                    return (True, f"เอกสาร {doc_id} ถูกเปิดใช้งานในกล่อง {box_id} แล้ว")
                 else:
-                    # หาก box_id มีค่าอยู่แล้ว ให้แสดงข้อผิดพลาด
-                    raise ValueError(f"เอกสารเลขนี้ {doc_id} มีอยู่ในกล่อง {row_dict['box_id']} แล้ว")
+                    # หาก box_id มีค่าอยู่แล้ว ให้คืนค่า error แทนที่จะ throw
+                    return (False, f"เอกสารเลขนี้ {doc_id} มีอยู่ในกล่อง {row_dict['box_id']} แล้ว")
             else:
                 cursor.execute("""
                     INSERT INTO Johnny_docInBox (id, doc_id, box_id, is_removed)
                     VALUES (?, ?, ?, ?)
                 """, (id, doc_id, box_id, 0))  # is_removed = 0 หมายถึงยังไม่ถูกเอาออก
                 conn.commit()
+                return (True, f"เอกสาร {doc_id} ถูกเพิ่มเข้ากล่อง {box_id} เรียบร้อยแล้ว")
+        except Exception as e:
+            return (False, f"เกิดข้อผิดพลาดในการเพิ่มเอกสาร {doc_id}: {str(e)}")
         finally:
             cursor.close()
             conn.close()
@@ -551,6 +559,10 @@ class DocInBox:
 
     @classmethod
     def remove_docInBox(cls, doc_id, box_id, user_email):
+        """
+        Remove document from box with improved error handling.
+        Returns tuple: (success: bool, message: str)
+        """
         conn = get_db_connection()
         cursor = conn.cursor()
         try:
@@ -560,9 +572,9 @@ class DocInBox:
                 row_dict = dict(zip([column[0] for column in cursor.description], row))
                 # แถวที่ select มาแล้ว ตรวจสอบค่า box_id
                 if row_dict["is_removed"] == 1:  # ตรวจสอบว่า box_id ถูกเอาออกไปแล้ว
-                    raise ValueError(f"เอกสารเลขนี้ {doc_id} ถูกเอาออกจากกล่องไปแล้ว") 
+                    return (False, f"เอกสารเลขนี้ {doc_id} ถูกเอาออกจากกล่องไปแล้ว")
                 elif row_dict["box_id"] != box_id:
-                    raise ValueError(f"เอกสารเลขนี้ {doc_id} ไม่ได้อยู่ในกล่อง {box_id}")
+                    return (False, f"เอกสารเลขนี้ {doc_id} ไม่ได้อยู่ในกล่อง {box_id}")
                 else:
                     # DELETE FROM Johnny_docInBox WHERE doc_id = ? AND box_id = ?
                     cursor.execute("""
@@ -572,8 +584,11 @@ class DocInBox:
                         UPDATE Johnny_doc SET remove_at = ?, remove_by = ? WHERE doc_id = ?
                     """, (get_current_datetime()+ timedelta(hours=7), user_email, doc_id))
                     conn.commit()
+                    return (True, f"เอกสาร {doc_id} ถูกเอาออกจากกล่อง {box_id} เรียบร้อยแล้ว")
             else:
-                raise ValueError(f"เอกสารเลขนี้ {doc_id} ยังไม่เคยถูกจัดเก็บ")
+                return (False, f"เอกสารเลขนี้ {doc_id} ยังไม่เคยถูกจัดเก็บ")
+        except Exception as e:
+            return (False, f"เกิดข้อผิดพลาดในการเอาออกเอกสาร {doc_id}: {str(e)}")
         finally:
             cursor.close()
             conn.close()
