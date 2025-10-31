@@ -6,7 +6,7 @@ from app.routes.doc import doc_api
 from app.routes.search import search_api
 from app.routes.user import user_api
 from app.routes.auth import auth_api
-from app.routes.sentiment import sentiment_api
+# from app.routes.sentiment import sentiment_api
 
 def create_app():
     app = Flask(__name__)
