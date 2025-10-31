@@ -35,7 +35,7 @@ def create_app():
     api.add_namespace(search_api)
     api.add_namespace(user_api)
     api.add_namespace(auth_api)
-    api.add_namespace(sentiment_api)
+    
     
     # Add root route
     @app.route('/')
