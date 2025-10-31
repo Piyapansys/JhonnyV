@@ -67,6 +67,7 @@ jobs:
         id: deploy-to-webapp
         with:
           app-name: 'docfinders'
-          # slot-name: 'Production'
+          slot-name: 'Production'
 
           
+
