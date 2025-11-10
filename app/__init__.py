@@ -7,6 +7,7 @@ from app.routes.search import search_api
 from app.routes.user import user_api
 from app.routes.auth import auth_api
 from app.routes.sentiment import sentiment_api
+from app.routes.report import report_api
 
 def create_app():
     app = Flask(__name__)
@@ -36,6 +37,7 @@ def create_app():
     api.add_namespace(user_api)
     api.add_namespace(auth_api)
     api.add_namespace(sentiment_api)
+    api.add_namespace(report_api)
     
     # Add root route
     @app.route('/')

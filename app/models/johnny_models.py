@@ -9,7 +9,7 @@ def get_current_datetime():
     """ได้เวลาปัจจุบันใน timezone ประเทศไทย (UTC+7)"""
     thailand_tz = pytz.timezone('Asia/Bangkok')
     return datetime.now(thailand_tz)
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
 
 class JohnnyBox:
@@ -1157,6 +1157,506 @@ class UserManagement:
             
             cursor.execute("DELETE FROM Johnny_role WHERE role_id = ?", (role_id,))
             conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
+
+class JohnnyReport:
+    THAI_MONTH_ABBR = [
+        "",
+        "ม.ค.",
+        "ก.พ.",
+        "มี.ค.",
+        "เม.ย.",
+        "พ.ค.",
+        "มิ.ย.",
+        "ก.ค.",
+        "ส.ค.",
+        "ก.ย.",
+        "ต.ค.",
+        "พ.ย.",
+        "ธ.ค.",
+    ]
+
+    @staticmethod
+    def _safe_percentage(current, previous):
+        previous_value = previous or 0
+        current_value = current or 0
+        if previous_value == 0:
+            return 100.0 if current_value > 0 else 0.0
+        try:
+            return round(((current_value - previous_value) / previous_value) * 100, 2)
+        except Exception:
+            return 0.0
+
+    @staticmethod
+    def _serialize_datetime(value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return None
+
+    @staticmethod
+    def _month_sequence(months):
+        months = max(1, months)
+        today = get_current_datetime().date()
+        year = today.year
+        month = today.month
+        sequence = []
+        for _ in range(months):
+            sequence.append((year, month))
+            month -= 1
+            if month == 0:
+                month = 12
+                year -= 1
+        sequence.reverse()
+        return sequence
+
+    @staticmethod
+    def _month_label(year, month):
+        if 1 <= month <= 12:
+            return f"{JohnnyReport.THAI_MONTH_ABBR[month]} {year}"
+        return f"{month:02d}/{year}"
+
+    @staticmethod
+    def _period_key(year, month):
+        return f"{year}-{month:02d}"
+
+    @staticmethod
+    def _get_month_range(sequence):
+        first_year, first_month = sequence[0]
+        last_year, last_month = sequence[-1]
+        start_date = datetime(first_year, first_month, 1)
+        if last_month == 12:
+            end_date = datetime(last_year + 1, 1, 1)
+        else:
+            end_date = datetime(last_year, last_month + 1, 1)
+        return start_date, end_date
+
+    @classmethod
+    def get_dashboard_summary(cls, months=6):
+        conn = get_db_connection()
+        if conn is None:
+            return {}
+        cursor = conn.cursor()
+        try:
+            summary = {}
+
+            cursor.execute("SELECT COUNT(*) FROM Johnny_box")
+            total_boxes_row = cursor.fetchone()
+            summary["total_boxes"] = int(total_boxes_row[0]) if total_boxes_row and total_boxes_row[0] is not None else 0
+
+            cursor.execute("SELECT COUNT(*) FROM Johnny_doc")
+            total_docs_row = cursor.fetchone()
+            summary["total_documents"] = int(total_docs_row[0]) if total_docs_row and total_docs_row[0] is not None else 0
+
+            cursor.execute("SELECT COUNT(*) FROM Johnny_docInBox WHERE is_removed = 0")
+            docs_in_storage_row = cursor.fetchone()
+            summary["documents_in_storage"] = int(docs_in_storage_row[0]) if docs_in_storage_row and docs_in_storage_row[0] is not None else 0
+
+            cursor.execute("SELECT COUNT(*) FROM Johnny_approvalRequest WHERE approval_status = 'pending'")
+            pending_requests_row = cursor.fetchone()
+            summary["pending_approvals"] = int(pending_requests_row[0]) if pending_requests_row and pending_requests_row[0] is not None else 0
+
+            cursor.execute("SELECT COUNT(*) FROM Johnny_approvalRequest WHERE approval_status = 'approved' AND approver_action_at >= DATEADD(DAY, -30, GETDATE())")
+            approvals_30_row = cursor.fetchone()
+            summary["approvals_last_30_days"] = int(approvals_30_row[0]) if approvals_30_row and approvals_30_row[0] is not None else 0
+
+            cursor.execute("SELECT COUNT(*) FROM Johnny_user")
+            users_total_row = cursor.fetchone()
+            summary["users_total"] = int(users_total_row[0]) if users_total_row and users_total_row[0] is not None else 0
+
+            cursor.execute(
+                """
+                SELECT COUNT(*) FROM Johnny_user
+                WHERE last_login IS NOT NULL
+                  AND last_login >= DATEADD(DAY, -30, GETDATE())
+                """
+            )
+            active_users_row = cursor.fetchone()
+            summary["active_users_30d"] = int(active_users_row[0]) if active_users_row and active_users_row[0] is not None else 0
+
+            cursor.execute(
+                """
+                SELECT
+                    SUM(CASE WHEN YEAR(create_at) = YEAR(GETDATE()) AND MONTH(create_at) = MONTH(GETDATE()) THEN 1 ELSE 0 END) AS current_month,
+                    SUM(CASE WHEN YEAR(create_at) = YEAR(DATEADD(MONTH, -1, GETDATE())) AND MONTH(create_at) = MONTH(DATEADD(MONTH, -1, GETDATE())) THEN 1 ELSE 0 END) AS previous_month
+                FROM Johnny_box
+                """
+            )
+            box_growth_row = cursor.fetchone()
+            current_boxes = int(box_growth_row[0]) if box_growth_row and box_growth_row[0] is not None else 0
+            previous_boxes = int(box_growth_row[1]) if box_growth_row and box_growth_row[1] is not None else 0
+            summary["monthly_box_growth"] = {
+                "current": current_boxes,
+                "previous": previous_boxes,
+                "percentage": cls._safe_percentage(current_boxes, previous_boxes),
+            }
+
+            cursor.execute(
+                """
+                SELECT
+                    SUM(CASE WHEN store_at IS NOT NULL AND YEAR(store_at) = YEAR(GETDATE()) AND MONTH(store_at) = MONTH(GETDATE()) THEN 1 ELSE 0 END) AS current_month,
+                    SUM(CASE WHEN store_at IS NOT NULL AND YEAR(store_at) = YEAR(DATEADD(MONTH, -1, GETDATE())) AND MONTH(store_at) = MONTH(DATEADD(MONTH, -1, GETDATE())) THEN 1 ELSE 0 END) AS previous_month
+                FROM Johnny_doc
+                """
+            )
+            doc_growth_row = cursor.fetchone()
+            current_docs = int(doc_growth_row[0]) if doc_growth_row and doc_growth_row[0] is not None else 0
+            previous_docs = int(doc_growth_row[1]) if doc_growth_row and doc_growth_row[1] is not None else 0
+            summary["monthly_document_growth"] = {
+                "current": current_docs,
+                "previous": previous_docs,
+                "percentage": cls._safe_percentage(current_docs, previous_docs),
+            }
+
+            summary["generated_at"] = cls._serialize_datetime(get_current_datetime())
+            return summary
+        finally:
+            cursor.close()
+            conn.close()
+
+    @classmethod
+    def get_dashboard_trends(cls, months=6):
+        sequence = cls._month_sequence(months)
+        if not sequence:
+            return {"boxes": [], "documents": [], "approvals": []}
+
+        start_date, end_date = cls._get_month_range(sequence)
+
+        conn = get_db_connection()
+        if conn is None:
+            return {"boxes": [], "documents": [], "approvals": []}
+        cursor = conn.cursor()
+        try:
+            boxes_counts = defaultdict(int)
+            box_rows = cursor.execute(
+                """
+                SELECT YEAR(create_at) AS year, MONTH(create_at) AS month, COUNT(*) AS total
+                FROM Johnny_box
+                WHERE create_at IS NOT NULL
+                  AND create_at >= ?
+                  AND create_at < ?
+                GROUP BY YEAR(create_at), MONTH(create_at)
+                """,
+                (start_date, end_date),
+            ).fetchall()
+            for row in box_rows:
+                year = int(row[0])
+                month = int(row[1])
+                count = int(row[2]) if row[2] is not None else 0
+                boxes_counts[(year, month)] = count
+
+            documents_counts = defaultdict(int)
+            doc_rows = cursor.execute(
+                """
+                SELECT YEAR(store_at) AS year, MONTH(store_at) AS month, COUNT(*) AS total
+                FROM Johnny_doc
+                WHERE store_at IS NOT NULL
+                  AND store_at >= ?
+                  AND store_at < ?
+                GROUP BY YEAR(store_at), MONTH(store_at)
+                """,
+                (start_date, end_date),
+            ).fetchall()
+            for row in doc_rows:
+                year = int(row[0])
+                month = int(row[1])
+                count = int(row[2]) if row[2] is not None else 0
+                documents_counts[(year, month)] = count
+
+            approval_request_counts = defaultdict(int)
+            approval_request_rows = cursor.execute(
+                """
+                SELECT YEAR(requester_request_at) AS year, MONTH(requester_request_at) AS month, COUNT(*) AS total
+                FROM Johnny_approvalRequest
+                WHERE requester_request_at IS NOT NULL
+                  AND requester_request_at >= ?
+                  AND requester_request_at < ?
+                GROUP BY YEAR(requester_request_at), MONTH(requester_request_at)
+                """,
+                (start_date, end_date),
+            ).fetchall()
+            for row in approval_request_rows:
+                year = int(row[0])
+                month = int(row[1])
+                count = int(row[2]) if row[2] is not None else 0
+                approval_request_counts[(year, month)] = count
+
+            approval_action_counts = defaultdict(lambda: {"approved": 0, "rejected": 0, "other": 0})
+            approval_action_rows = cursor.execute(
+                """
+                SELECT YEAR(approver_action_at) AS year,
+                       MONTH(approver_action_at) AS month,
+                       approval_status,
+                       COUNT(*) AS total
+                FROM Johnny_approvalRequest
+                WHERE approver_action_at IS NOT NULL
+                  AND approver_action_at >= ?
+                  AND approver_action_at < ?
+                GROUP BY YEAR(approver_action_at), MONTH(approver_action_at), approval_status
+                """,
+                (start_date, end_date),
+            ).fetchall()
+            for row in approval_action_rows:
+                year = int(row[0])
+                month = int(row[1])
+                status = (row[2] or "").lower()
+                count = int(row[3]) if row[3] is not None else 0
+                bucket = approval_action_counts[(year, month)]
+                if status == "approved":
+                    bucket["approved"] += count
+                elif status == "rejected":
+                    bucket["rejected"] += count
+                else:
+                    bucket["other"] += count
+
+            boxes_trend = []
+            documents_trend = []
+            approvals_trend = []
+
+            for year, month in sequence:
+                period = cls._period_key(year, month)
+                label = cls._month_label(year, month)
+
+                boxes_trend.append(
+                    {
+                        "period": period,
+                        "year": year,
+                        "month": month,
+                        "label": label,
+                        "count": boxes_counts.get((year, month), 0),
+                    }
+                )
+
+                documents_trend.append(
+                    {
+                        "period": period,
+                        "year": year,
+                        "month": month,
+                        "label": label,
+                        "count": documents_counts.get((year, month), 0),
+                    }
+                )
+
+                approval_counts = approval_action_counts.get((year, month), {"approved": 0, "rejected": 0, "other": 0})
+                approvals_trend.append(
+                    {
+                        "period": period,
+                        "year": year,
+                        "month": month,
+                        "label": label,
+                        "requested": approval_request_counts.get((year, month), 0),
+                        "approved": approval_counts.get("approved", 0),
+                        "rejected": approval_counts.get("rejected", 0),
+                        "other": approval_counts.get("other", 0),
+                    }
+                )
+
+            return {
+                "boxes": boxes_trend,
+                "documents": documents_trend,
+                "approvals": approvals_trend,
+            }
+        finally:
+            cursor.close()
+            conn.close()
+
+    @classmethod
+    def get_recent_activity(cls, limit=10):
+        limit = max(1, min(limit, 50))
+        conn = get_db_connection()
+        if conn is None:
+            return []
+
+        cursor = conn.cursor()
+        try:
+            events = []
+
+            box_created_rows = cursor.execute(
+                """
+                SELECT TOP 50 box_id, create_by, create_at
+                FROM Johnny_box
+                WHERE create_at IS NOT NULL
+                ORDER BY create_at DESC
+                """
+            ).fetchall()
+            for row in box_created_rows:
+                occurred_at = row[2]
+                if not occurred_at:
+                    continue
+                actor = (row[1] or "").strip() or "ระบบ"
+                reference_id = row[0]
+                events.append(
+                    {
+                        "type": "box_created",
+                        "reference_id": reference_id,
+                        "actor": actor,
+                        "occurred_at": occurred_at,
+                        "title": f"สร้างกล่อง {reference_id}",
+                        "description": f"{actor} สร้างกล่องใหม่",
+                    }
+                )
+
+            box_updated_rows = cursor.execute(
+                """
+                SELECT TOP 50 box_id, update_by, update_at
+                FROM Johnny_box
+                WHERE update_at IS NOT NULL
+                ORDER BY update_at DESC
+                """
+            ).fetchall()
+            for row in box_updated_rows:
+                occurred_at = row[2]
+                if not occurred_at:
+                    continue
+                actor = (row[1] or "").strip() or "ระบบ"
+                reference_id = row[0]
+                events.append(
+                    {
+                        "type": "box_updated",
+                        "reference_id": reference_id,
+                        "actor": actor,
+                        "occurred_at": occurred_at,
+                        "title": f"อัปเดตกล่อง {reference_id}",
+                        "description": f"{actor} อัปเดตข้อมูลกล่อง",
+                    }
+                )
+
+            documents_stored_rows = cursor.execute(
+                """
+                SELECT TOP 50 d.doc_id, d.store_by, d.store_at, db.box_id
+                FROM Johnny_doc d
+                LEFT JOIN Johnny_docInBox db ON d.doc_id = db.doc_id AND db.is_removed = 0
+                WHERE d.store_at IS NOT NULL
+                ORDER BY d.store_at DESC
+                """
+            ).fetchall()
+            for row in documents_stored_rows:
+                occurred_at = row[2]
+                if not occurred_at:
+                    continue
+                actor = (row[1] or "").strip() or "ระบบ"
+                reference_id = row[0]
+                box_id = row[3]
+                if box_id:
+                    description = f"{actor} จัดเก็บเอกสาร {reference_id} ในกล่อง {box_id}"
+                else:
+                    description = f"{actor} จัดเก็บเอกสาร {reference_id}"
+                events.append(
+                    {
+                        "type": "document_stored",
+                        "reference_id": reference_id,
+                        "actor": actor,
+                        "occurred_at": occurred_at,
+                        "title": f"จัดเก็บเอกสาร {reference_id}",
+                        "description": description,
+                    }
+                )
+
+            documents_removed_rows = cursor.execute(
+                """
+                SELECT TOP 50 d.doc_id, d.remove_by, d.remove_at, db.box_id
+                FROM Johnny_doc d
+                LEFT JOIN Johnny_docInBox db ON d.doc_id = db.doc_id
+                WHERE d.remove_at IS NOT NULL
+                ORDER BY d.remove_at DESC
+                """
+            ).fetchall()
+            for row in documents_removed_rows:
+                occurred_at = row[2]
+                if not occurred_at:
+                    continue
+                actor = (row[1] or "").strip() or "ระบบ"
+                reference_id = row[0]
+                box_id = row[3]
+                if box_id:
+                    description = f"{actor} นำเอกสาร {reference_id} ออกจากกล่อง {box_id}"
+                else:
+                    description = f"{actor} นำเอกสาร {reference_id} ออกจากคลัง"
+                events.append(
+                    {
+                        "type": "document_removed",
+                        "reference_id": reference_id,
+                        "actor": actor,
+                        "occurred_at": occurred_at,
+                        "title": f"นำออกเอกสาร {reference_id}",
+                        "description": description,
+                    }
+                )
+
+            approval_requested_rows = cursor.execute(
+                """
+                SELECT TOP 50 approval_id, requester_email, requester_request_at
+                FROM Johnny_approvalRequest
+                WHERE requester_request_at IS NOT NULL
+                ORDER BY requester_request_at DESC
+                """
+            ).fetchall()
+            for row in approval_requested_rows:
+                occurred_at = row[2]
+                if not occurred_at:
+                    continue
+                actor = (row[1] or "").strip() or "ระบบ"
+                reference_id = row[0]
+                events.append(
+                    {
+                        "type": "approval_requested",
+                        "reference_id": reference_id,
+                        "actor": actor,
+                        "occurred_at": occurred_at,
+                        "title": f"คำขอเบิกเอกสาร {reference_id}",
+                        "description": f"{actor} ส่งคำขอเบิกเอกสาร",
+                    }
+                )
+
+            approval_action_rows = cursor.execute(
+                """
+                SELECT TOP 50 approval_id, approval_status, approver_email, approver_action_at
+                FROM Johnny_approvalRequest
+                WHERE approver_action_at IS NOT NULL
+                ORDER BY approver_action_at DESC
+                """
+            ).fetchall()
+            for row in approval_action_rows:
+                occurred_at = row[3]
+                if not occurred_at:
+                    continue
+                status = (row[1] or "").lower()
+                if status == "approved":
+                    status_label = "อนุมัติ"
+                elif status == "rejected":
+                    status_label = "ปฏิเสธ"
+                else:
+                    status_label = "ดำเนินการ"
+                actor = (row[2] or "").strip() or "ระบบ"
+                reference_id = row[0]
+                events.append(
+                    {
+                        "type": f"approval_{status}",
+                        "reference_id": reference_id,
+                        "actor": actor,
+                        "occurred_at": occurred_at,
+                        "title": f"{status_label}คำขอ {reference_id}",
+                        "description": f"{actor} {status_label.lower()}คำขอเบิกเอกสาร",
+                    }
+                )
+
+            events.sort(key=lambda event: event["occurred_at"], reverse=True)
+
+            serialised_events = []
+            for event in events[:limit]:
+                serialised_events.append(
+                    {
+                        "type": event["type"],
+                        "reference_id": event["reference_id"],
+                        "actor": event["actor"],
+                        "occurred_at": cls._serialize_datetime(event["occurred_at"]),
+                        "title": event["title"],
+                        "description": event["description"],
+                    }
+                )
+
+            return serialised_events
         finally:
             cursor.close()
             conn.close()

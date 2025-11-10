@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 from flask import json, jsonify, logging
-from app.models import JohnnyBox, JohnnyDoc, DocInBox, Search, UserManagement
+from app.models import JohnnyBox, JohnnyDoc, DocInBox, Search, UserManagement, JohnnyReport
 from app.db import get_db_connection
 from app.config import Config
 import base64
@@ -725,6 +725,21 @@ class UserController:
         try:
             UserManagement.delete_role(role_id)
             return {"message": "Role deleted successfully"}, 200
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+class ReportController:
+    @staticmethod
+    def get_dashboard_data(limit=10, months=6):
+        try:
+            summary = JohnnyReport.get_dashboard_summary(months)
+            trends = JohnnyReport.get_dashboard_trends(months)
+            recent_activity = JohnnyReport.get_recent_activity(limit)
+            return {
+                'summary': summary,
+                'trends': trends,
+                'recent_activity': recent_activity
+            }, 200
         except Exception as e:
             return {"error": str(e)}, 500
 
