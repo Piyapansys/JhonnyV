@@ -1309,6 +1309,114 @@ class JohnnyReport:
                 "percentage": cls._safe_percentage(current_docs, previous_docs),
             }
 
+            total_boxes_value = summary.get("total_boxes", 0) or 0
+            total_documents_value = summary.get("total_documents", 0) or 0
+
+            cursor.execute(
+                """
+                SELECT 
+                    box.boxtype_id,
+                    boxtype.boxtype_name,
+                    boxtype.boxtype_shortname,
+                    COUNT(*) AS total_boxes,
+                    SUM(
+                        CASE 
+                            WHEN box.create_at IS NOT NULL 
+                                 AND box.create_at >= DATEADD(DAY, -30, GETDATE()) 
+                            THEN 1 ELSE 0 
+                        END
+                    ) AS last_30_days
+                FROM Johnny_box AS box
+                LEFT JOIN Johnny_boxType AS boxtype
+                    ON box.boxtype_id = boxtype.boxtype_id
+                GROUP BY 
+                    box.boxtype_id,
+                    boxtype.boxtype_name,
+                    boxtype.boxtype_shortname
+                ORDER BY total_boxes DESC
+                """
+            )
+            box_type_rows = cursor.fetchall() or []
+            box_type_breakdown = []
+            for row in box_type_rows:
+                type_id = row[0]
+                name = row[1] if row[1] is not None else None
+                short_name = row[2] if row[2] is not None else None
+                total_count = int(row[3]) if row[3] is not None else 0
+                last_30_days = int(row[4]) if row[4] is not None else 0
+                share = round(total_count / total_boxes_value * 100, 2) if total_boxes_value else 0.0
+                display_name = name or f"ประเภท {type_id}" if type_id is not None else "ไม่ระบุ"
+                box_type_breakdown.append(
+                    {
+                        "type_id": str(type_id) if type_id is not None else "",
+                        "name": display_name,
+                        "short_name": short_name,
+                        "total_boxes": total_count,
+                        "last_30_days": last_30_days,
+                        "share_percentage": share,
+                    }
+                )
+
+            cursor.execute(
+                """
+                SELECT 
+                    doc.doctype_id,
+                    doctype.doctype_name,
+                    doctype.doctype_shortname,
+                    COUNT(*) AS total_documents
+                FROM Johnny_doc AS doc
+                LEFT JOIN Johnny_docType AS doctype
+                    ON doc.doctype_id = doctype.doctype_id
+                GROUP BY 
+                    doc.doctype_id,
+                    doctype.doctype_name,
+                    doctype.doctype_shortname
+                ORDER BY total_documents DESC
+                """
+            )
+            doc_type_rows = cursor.fetchall() or []
+
+            cursor.execute(
+                """
+                SELECT 
+                    doc.doctype_id,
+                    COUNT(*) AS documents_in_storage
+                FROM Johnny_docInBox AS docInBox
+                INNER JOIN Johnny_doc AS doc
+                    ON docInBox.doc_id = doc.doc_id
+                WHERE docInBox.is_removed = 0
+                GROUP BY doc.doctype_id
+                """
+            )
+            doc_in_storage_rows = cursor.fetchall() or []
+            doc_in_storage_map = {
+                str(row[0]) if row[0] is not None else "": int(row[1]) if row[1] is not None else 0
+                for row in doc_in_storage_rows
+            }
+
+            document_type_breakdown = []
+            for row in doc_type_rows:
+                type_id = row[0]
+                name = row[1] if row[1] is not None else None
+                short_name = row[2] if row[2] is not None else None
+                total_count = int(row[3]) if row[3] is not None else 0
+                share = round(total_count / total_documents_value * 100, 2) if total_documents_value else 0.0
+                key = str(type_id) if type_id is not None else ""
+                in_storage = doc_in_storage_map.get(key, 0)
+                display_name = name or f"ประเภท {type_id}" if type_id is not None else "ไม่ระบุ"
+                document_type_breakdown.append(
+                    {
+                        "type_id": key,
+                        "name": display_name,
+                        "short_name": short_name,
+                        "total_documents": total_count,
+                        "in_storage": in_storage,
+                        "share_percentage": share,
+                    }
+                )
+
+            summary["box_type_breakdown"] = box_type_breakdown
+            summary["document_type_breakdown"] = document_type_breakdown
             summary["generated_at"] = cls._serialize_datetime(get_current_datetime())
             return summary
         finally:
