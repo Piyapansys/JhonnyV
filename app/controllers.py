@@ -730,11 +730,11 @@ class UserController:
 
 class ReportController:
     @staticmethod
-    def get_dashboard_data(limit=10, months=6):
+    def get_dashboard_data(limit=10, months=6, days=7):
         try:
             summary = JohnnyReport.get_dashboard_summary(months)
             trends = JohnnyReport.get_dashboard_trends(months)
-            recent_activity = JohnnyReport.get_recent_activity(limit)
+            recent_activity = JohnnyReport.get_recent_activity(limit=limit, days=days)
             return {
                 'summary': summary,
                 'trends': trends,

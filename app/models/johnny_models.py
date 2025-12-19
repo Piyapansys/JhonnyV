@@ -1570,8 +1570,21 @@ class JohnnyReport:
             conn.close()
 
     @classmethod
-    def get_recent_activity(cls, limit=10):
-        limit = max(1, min(limit, 50))
+    def get_recent_activity(cls, limit=None, days=7):
+        # Allow larger activity window for dashboard (capped to avoid overload)
+        # If limit is None, rely on date window + a safe cap
+        if days is None or days <= 0:
+            days = 7
+        days = min(days, 365)
+
+        if limit is not None:
+            limit = max(1, min(limit, 200))
+            fetch_limit = min(max(limit, 50), 200)
+        else:
+            # No explicit limit: fetch up to a safe upper bound for 7-day window
+            fetch_limit = 500
+
+        cutoff_clause = f" AND {{col}} >= DATEADD(day, -{days}, GETDATE()) "
         conn = get_db_connection()
         if conn is None:
             return []
@@ -1582,11 +1595,11 @@ class JohnnyReport:
 
             box_created_rows = cursor.execute(
                 """
-                SELECT TOP 50 box_id, create_by, create_at
+                SELECT TOP {fetch_limit} box_id, create_by, create_at
                 FROM Johnny_box
-                WHERE create_at IS NOT NULL
+                WHERE create_at IS NOT NULL {cutoff}
                 ORDER BY create_at DESC
-                """
+                """.format(fetch_limit=fetch_limit, cutoff=cutoff_clause.format(col="create_at"))
             ).fetchall()
             for row in box_created_rows:
                 occurred_at = row[2]
@@ -1607,11 +1620,11 @@ class JohnnyReport:
 
             box_updated_rows = cursor.execute(
                 """
-                SELECT TOP 50 box_id, update_by, update_at
+                SELECT TOP {fetch_limit} box_id, update_by, update_at
                 FROM Johnny_box
-                WHERE update_at IS NOT NULL
+                WHERE update_at IS NOT NULL {cutoff}
                 ORDER BY update_at DESC
-                """
+                """.format(fetch_limit=fetch_limit, cutoff=cutoff_clause.format(col="update_at"))
             ).fetchall()
             for row in box_updated_rows:
                 occurred_at = row[2]
@@ -1632,12 +1645,12 @@ class JohnnyReport:
 
             documents_stored_rows = cursor.execute(
                 """
-                SELECT TOP 50 d.doc_id, d.store_by, d.store_at, db.box_id
+                SELECT TOP {fetch_limit} d.doc_id, d.store_by, d.store_at, db.box_id
                 FROM Johnny_doc d
                 LEFT JOIN Johnny_docInBox db ON d.doc_id = db.doc_id AND db.is_removed = 0
-                WHERE d.store_at IS NOT NULL
+                WHERE d.store_at IS NOT NULL {cutoff}
                 ORDER BY d.store_at DESC
-                """
+                """.format(fetch_limit=fetch_limit, cutoff=cutoff_clause.format(col="d.store_at"))
             ).fetchall()
             for row in documents_stored_rows:
                 occurred_at = row[2]
@@ -1663,12 +1676,12 @@ class JohnnyReport:
 
             documents_removed_rows = cursor.execute(
                 """
-                SELECT TOP 50 d.doc_id, d.remove_by, d.remove_at, db.box_id
+                SELECT TOP {fetch_limit} d.doc_id, d.remove_by, d.remove_at, db.box_id
                 FROM Johnny_doc d
                 LEFT JOIN Johnny_docInBox db ON d.doc_id = db.doc_id
-                WHERE d.remove_at IS NOT NULL
+                WHERE d.remove_at IS NOT NULL {cutoff}
                 ORDER BY d.remove_at DESC
-                """
+                """.format(fetch_limit=fetch_limit, cutoff=cutoff_clause.format(col="d.remove_at"))
             ).fetchall()
             for row in documents_removed_rows:
                 occurred_at = row[2]
@@ -1694,11 +1707,11 @@ class JohnnyReport:
 
             approval_requested_rows = cursor.execute(
                 """
-                SELECT TOP 50 approval_id, requester_email, requester_request_at
+                SELECT TOP {fetch_limit} approval_id, requester_email, requester_request_at
                 FROM Johnny_approvalRequest
-                WHERE requester_request_at IS NOT NULL
+                WHERE requester_request_at IS NOT NULL {cutoff}
                 ORDER BY requester_request_at DESC
-                """
+                """.format(fetch_limit=fetch_limit, cutoff=cutoff_clause.format(col="requester_request_at"))
             ).fetchall()
             for row in approval_requested_rows:
                 occurred_at = row[2]
@@ -1719,11 +1732,11 @@ class JohnnyReport:
 
             approval_action_rows = cursor.execute(
                 """
-                SELECT TOP 50 approval_id, approval_status, approver_email, approver_action_at
+                SELECT TOP {fetch_limit} approval_id, approval_status, approver_email, approver_action_at
                 FROM Johnny_approvalRequest
-                WHERE approver_action_at IS NOT NULL
+                WHERE approver_action_at IS NOT NULL {cutoff}
                 ORDER BY approver_action_at DESC
-                """
+                """.format(fetch_limit=fetch_limit, cutoff=cutoff_clause.format(col="approver_action_at"))
             ).fetchall()
             for row in approval_action_rows:
                 occurred_at = row[3]
@@ -1752,7 +1765,8 @@ class JohnnyReport:
             events.sort(key=lambda event: event["occurred_at"], reverse=True)
 
             serialised_events = []
-            for event in events[:limit]:
+            trimmed_events = events if limit is None else events[:limit]
+            for event in trimmed_events:
                 serialised_events.append(
                     {
                         "type": event["type"],

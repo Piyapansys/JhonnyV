@@ -11,20 +11,27 @@ report_api = Namespace('api/report', description='Reporting operations')
 class ReportDashboardResource(Resource):
     @role_required('allow_report')
     def get(self, user_data=None):
-        limit = request.args.get('limit', default=10, type=int)
+        limit = request.args.get('limit', default=None, type=int)
         months = request.args.get('months', default=6, type=int)
+        days = request.args.get('days', default=7, type=int)
 
-        if limit is None or limit <= 0:
-            limit = 10
+        if limit is not None and limit <= 0:
+            limit = None
         if months is None or months <= 0:
             months = 6
+        if days is None or days <= 0:
+            days = 7
 
-        limit = min(limit, 50)
+        # Allow returning more recent activities on the dashboard
+        if limit is not None:
+            limit = min(limit, 200)
         months = min(months, 24)
+        days = min(days, 365)
 
         response, status_code = ReportController.get_dashboard_data(
             limit=limit,
             months=months,
+            days=days,
         )
         return response, status_code
 

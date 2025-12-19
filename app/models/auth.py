@@ -33,7 +33,7 @@ class AuthModel:
             access_token_payload = {
                 'user_email': user_email,
                 'role_id': role_id,
-                'exp': get_current_datetime() + timedelta(minutes=60),  # 60 minutes expiration
+                'exp': get_current_datetime() + timedelta(hours=8),  # 8 hours expiration
                 'iat': get_current_datetime(),
                 'jti': str(uuid.uuid4())
             }
@@ -59,7 +59,7 @@ class AuthModel:
             )
             
             # Store tokens in database
-            token_expire = get_current_datetime() + timedelta(minutes=60)
+            token_expire = get_current_datetime() + timedelta(hours=8)
             cursor.execute("""
                 UPDATE Johnny_user 
                 SET access_token = ?, token_expire = ?, refresh_token = ?, last_login = ?
@@ -100,7 +100,7 @@ class AuthModel:
                 access_token_payload = {
                     'user_email': user_email,
                     'role_id': user[2],  # Assuming role_id is at index 2
-                    'exp': get_current_datetime() + timedelta(minutes=60),
+                    'exp': get_current_datetime() + timedelta(hours=8),
                     'iat': get_current_datetime(),
                     'jti': str(uuid.uuid4())
                 }
@@ -112,7 +112,7 @@ class AuthModel:
                 )
                 
                 # Update access token in database
-                token_expire = get_current_datetime() + timedelta(minutes=60)
+                token_expire = get_current_datetime() + timedelta(hours=8)
                 cursor.execute("""
                     UPDATE Johnny_user 
                     SET access_token = ?, token_expire = ?
