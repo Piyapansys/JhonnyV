@@ -171,18 +171,25 @@ class BoxLocationResource(Resource):
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500
         
-destroy_box_model = box_api.model('DestroyBoxModel', {
-    'box_year': fields.String(required=True, description='Year of the documents to destroy'),
-})
-
-@box_api.route('/destroy-box')
-class DestroyBoxResource(Resource):
-    @box_api.expect(destroy_box_model)
+@box_api.route('/destroy-box-by-year')
+class DestroyBoxByYearResource(Resource):
+    @box_api.doc(params={
+        'box_year': {
+            'description': 'Year of the documents to destroy (e.g., "2025")',
+            'type': 'string',
+            'required': True
+        }
+    })
     @role_required('allow_setting')
-    def get(self, user_data=None):
-        """Destroy THAT!! BOX Please"""
+    def delete(self, user_data=None):
+        """Destroy all boxes, documents, and related data for a specific year"""
         try:
-            result = BoxController.get_box_types()
+            box_year = request.args.get('box_year')
+            if not box_year:
+                return {"message": "box_year parameter is required"}, 400
+            
+            data = {'box_year': box_year}
+            result = BoxController.destroy_box_by_year(data)
             return result[0], result[1]
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500

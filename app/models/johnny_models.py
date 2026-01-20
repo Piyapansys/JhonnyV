@@ -245,6 +245,49 @@ class JohnnyBox:
             cursor.close()
             conn.close()
 
+    @classmethod
+    def destroy_box_by_year(cls, box_year):
+        """
+        ลบข้อมูลจาก 3 ตารางตามปีที่ระบุ:
+        1. Johnny_docInBox - เช็คจาก box_id (ตำแหน่ง 7-8, เช่น 0490AC25J212090 → 25) 
+           หรือ doc_id (ขึ้นต้นด้วยปี, เช่น 2025212015279 → 2025)
+        2. Johnny_box - เช็คจาก box_year
+        3. Johnny_doc - เช็คจาก doc_year
+        """
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            # แปลงปีเป็น string และเตรียมปีสำหรับเช็ค (เช่น "2025" หรือ "25")
+            year_str = str(box_year)
+            year_short = year_str[-2:] if len(year_str) >= 2 else year_str  # 2 ตัวสุดท้าย เช่น "25"
+            
+            # 1. ลบ Johnny_docInBox ที่เกี่ยวข้อง
+            # เช็คจาก box_id ที่ตำแหน่ง 7-8 (เช่น 0490AC25J212090 → 25)
+            # หรือเช็คจาก doc_id ที่ขึ้นต้นด้วยปี (เช่น 2025212015279 → 2025)
+            cursor.execute("""
+                DELETE FROM Johnny_docInBox
+                WHERE (box_id IS NOT NULL AND SUBSTRING(box_id, 7, 2) = ?)
+                   OR (doc_id IS NOT NULL AND doc_id LIKE ?)
+            """, (year_short, f"{year_str}%"))
+            
+            # 2. ลบ Johnny_box ที่ box_year ตรงกับ input
+            cursor.execute("""
+                DELETE FROM Johnny_box WHERE box_year = ?
+            """, (box_year,))
+            
+            # 3. ลบ Johnny_doc ที่ doc_year ตรงกับ input
+            cursor.execute("""
+                DELETE FROM Johnny_doc WHERE doc_year = ?
+            """, (box_year,))
+            
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            cursor.close()
+            conn.close()
+
 
 class JohnnyDoc:
 

@@ -141,6 +141,18 @@ class BoxController:
         except Exception as e:
             return {"error": str(e)}, 500
 
+    def destroy_box_by_year(data):
+        box_year = data.get('box_year')
+        
+        if not box_year:
+            return {"message": "box_year is required"}, 400
+        
+        try:
+            JohnnyBox.destroy_box_by_year(box_year)
+            return {"message": f"Successfully destroyed all boxes, documents, and related data for year {box_year}"}, 200
+        except Exception as e:
+            return {"error": str(e)}, 500
+
 class DocController:
     def get_doc_detail():
         try:
