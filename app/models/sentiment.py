@@ -20,13 +20,14 @@ class SentimentNews:
             """
 
             if start_date and end_date:
-                query += " AND clicked_at >= ? AND clicked_at <= ?"
+                # ใช้ CAST หรือ DATE() เพื่อเปรียบเทียบเฉพาะวันที่
+                query += " AND CAST(clicked_at AS DATE) >= CAST(? AS DATE) AND CAST(clicked_at AS DATE) <= CAST(? AS DATE)"
                 params.extend([start_date, end_date])
             elif start_date:
-                query += " AND clicked_at >= ?"
+                query += " AND CAST(clicked_at AS DATE) >= CAST(? AS DATE)"
                 params.append(start_date)
             elif end_date:
-                query += " AND clicked_at <= ?"
+                query += " AND CAST(clicked_at AS DATE) <= CAST(? AS DATE)"
                 params.append(end_date)
 
             cursor.execute(query, params)
