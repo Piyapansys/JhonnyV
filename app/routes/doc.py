@@ -134,3 +134,16 @@ class UpdateRequestStatusResource(Resource):
             return result[0], result[1]
         except Exception as e:
             return {"message": f"An error occurred: {str(e)}"}, 500
+
+@doc_api.route('/validate-pickup')
+class ValidatePickupResource(Resource):
+    @doc_api.expect(doc_model)
+    @token_required
+    def post(self, user_data=None):
+        """Validate documents before creating pickup request (does not remove documents)"""
+        try:
+            data = request.json
+            result = DocController.validate_pickup(data)
+            return result[0], result[1]
+        except Exception as e:
+            return {"message": f"An error occurred: {str(e)}"}, 500

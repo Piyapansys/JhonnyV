@@ -488,6 +488,91 @@ class DocController:
         except Exception as e:
             return {"message": f"An error occurred in bulk processing: {str(e)}"}, 500
 
+    def validate_pickup(data):
+        """
+        Validate documents before creating pickup request.
+        Checks if documents exist in the box, year matches, and type matches.
+        Does NOT remove documents from box.
+        """
+        box_id = data.get('box_id')
+        documents = data.get('documents')
+
+        if not box_id or not documents:
+            return {"message": "Missing required fields"}, 400
+
+        try:
+            box_data = JohnnyBox.get_box_by_id(box_id)
+            if not box_data:
+                return {"message": "Box not found", "results": []}, 404
+
+            results = []  # เก็บผลลัพธ์ของเอกสารแต่ละตัว
+            all_valid = True
+
+            for doc in documents:
+                try:
+                    doc_year = doc[:4]
+                    doc_type_raw = doc[4:7]
+
+                    if doc_type_raw[2] == "0":
+                        doctype_id = doc_type_raw[:2]
+                    else:
+                        doctype_id = doc_type_raw
+
+                    errors = []
+
+                    # ตรวจสอบ year
+                    if str(box_data.box_year) != doc_year:
+                        errors.append("ปีของเอกสารไม่ตรงกับปีของกล่อง")
+                        all_valid = False
+
+                    # ตรวจสอบ type
+                    if str(box_data.boxtype_id) != doctype_id:
+                        errors.append("ประเภทของเอกสารไม่ตรงกับประเภทของกล่อง")
+                        all_valid = False
+
+                    # ตรวจสอบว่าเอกสารอยู่ในกล่องนี้จริงหรือไม่
+                    existing_doc = DocInBox.get_doc_by_id(doc)
+                    if not existing_doc:
+                        errors.append(f"เอกสารเลขนี้ {doc} ยังไม่เคยถูกจัดเก็บ")
+                        all_valid = False
+                    elif existing_doc.get('is_removed') == 1:
+                        errors.append(f"เอกสารเลขนี้ {doc} ถูกเอาออกจากกล่องไปแล้ว")
+                        all_valid = False
+                    elif existing_doc.get('box_id') != box_id:
+                        errors.append(f"เอกสารเลขนี้ {doc} อยู่ในกล่อง {existing_doc.get('box_id')} ไม่ใช่กล่อง {box_id}")
+                        all_valid = False
+
+                    if errors:
+                        results.append({
+                            "doc": doc,
+                            "status": "error",
+                            "reasons": errors
+                        })
+                    else:
+                        results.append({
+                            "doc": doc,
+                            "status": "success",
+                            "message": "เอกสารพร้อมสำหรับการเบิก"
+                        })
+
+                except Exception as e:
+                    results.append({
+                        "doc": doc,
+                        "status": "error",
+                        "reasons": [str(e)]
+                    })
+                    all_valid = False
+
+            return {
+                "message": "Validation completed",
+                "valid": all_valid,
+                "results": results,
+                "box_id": box_id
+            }, 200
+
+        except Exception as e:
+            return {"message": f"An error occurred: {str(e)}", "valid": False, "results": []}, 500
+
     def remove_docInBox(data):
         box_id = data.get('box_id')
         documents = data.get('documents')
