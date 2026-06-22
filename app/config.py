@@ -32,6 +32,8 @@ class Config:
         "Encrypt=yes;"
         "TrustServerCertificate=yes;"
         "Connection Timeout=30;"
+        "ConnectRetryCount=3;"
+        "ConnectRetryInterval=10;"
     )
 
     def __init__(self, config_file='config.ini'):
