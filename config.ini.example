@@ -1,0 +1,10 @@
+[DATABASE]
+SERVER=tcp:<your_db_server>,1433
+DATABASE=<your_database_name>
+USERNAME=<your_username>
+PASSWORD=<your_password>
+
+[AUTH]
+SECRET_KEY=<your_secret_key_here>
+TOKEN_EXPIRATION_MINUTES=60
+REFRESH_TOKEN_EXPIRATION_DAYS=7

@@ -104,6 +104,10 @@ ENV/
 env.bak/
 venv.bak/
 
+# Local config with secrets (never commit)
+config.ini
+local.settings.json
+
 # Spyder project settings
 .spyderproject
 .spyproject

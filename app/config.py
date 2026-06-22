@@ -24,11 +24,11 @@ class Config:
         "&Connection Timeout=30"
     )
     SQL_SERVER_CONNECTION_STRING = (
-        "DRIVER={ODBC Driver 18 for SQL Server};"
-        "SERVER=tcp:siamyamato.database.windows.net,1433;"
-        "DATABASE=thoth_datawarehouse;"
-        "UID=administratorsys;"
-        "PWD=DxIT$y$2023;"
+        f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+        f"SERVER=tcp:{server},1433;"
+        f"DATABASE={database};"
+        f"UID={username};"
+        f"PWD={password};"
         "Encrypt=yes;"
         "TrustServerCertificate=yes;"
         "Connection Timeout=30;"
