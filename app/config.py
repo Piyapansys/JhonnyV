@@ -38,9 +38,8 @@ class Config:
 
     def __init__(self, config_file='config.ini'):
         self.config = configparser.ConfigParser()
-        if not os.path.exists(config_file):
-            raise FileNotFoundError(f"Configuration file '{config_file}' not found.")
-        self.config.read(config_file)
+        if os.path.exists(config_file):
+            self.config.read(config_file)
 
     def get(self, section, option):
         return self.config.get(section, option)
