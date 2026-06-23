@@ -14,7 +14,10 @@ def create_app():
     
     # Configure CORS to allow requests from frontend
     CORS(app,
-            origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://10.41.97.111:64401", "http://localhost:3000", "http://10.41.97.111:64402", 
+            origins=["http://localhost:5173", "http://127.0.0.1:5173",
+                    "http://10.41.97.111:64401", "http://10.41.97.111:64402", "http://10.41.97.111:5173",
+                    "http://10.0.156.33:64401", "http://10.0.156.33:64402", "http://10.0.156.33:5173",
+                    "http://localhost:3000",
                     "https://docfinders-bphhejdmbpa5bveh.southeastasia-01.azurewebsites.net"],
             methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
             allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
