@@ -325,57 +325,67 @@ class JohnnyDoc:
         """
         if not documents_data:
             return []
-            
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        created_docs = []
-        
-        try:
-            # Prepare bulk data
-            insert_data = []
-            update_data = []
-            
-            for doc_data in documents_data:
-                doc_year = doc_data['doc_year']
-                doctype_id = doc_data['doctype_id'] 
-                doc_number = doc_data['doc_number']
-                doc_id = f"{doc_year}{doc_number}"
+
+        RETRYABLE_STATES = {'08S01', '08001', '08003', '08007', 'HYT00', 'HYT01'}
+        last_error = None
+
+        for attempt in range(3):
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            created_docs = []
+            try:
+                insert_data = []
+                update_data = []
                 
-                # Check if document exists
-                cursor.execute("SELECT doc_id FROM Johnny_doc WHERE doc_id = ?", (doc_id,))
-                existing_doc = cursor.fetchone()
+                for doc_data in documents_data:
+                    doc_year = doc_data['doc_year']
+                    doctype_id = doc_data['doctype_id'] 
+                    doc_number = doc_data['doc_number']
+                    doc_id = f"{doc_year}{doc_number}"
+                    
+                    cursor.execute("SELECT doc_id FROM Johnny_doc WHERE doc_id = ?", (doc_id,))
+                    existing_doc = cursor.fetchone()
+                    
+                    if existing_doc:
+                        update_data.append((get_current_datetime() + timedelta(hours=7), store_by, doc_id))
+                    else:
+                        insert_data.append((doc_id, doctype_id, doc_year, doc_number, store_by, get_current_datetime()))
+                    
+                    created_docs.append(doc_id)
                 
-                if existing_doc:
-                    update_data.append((get_current_datetime() + timedelta(hours=7), store_by, doc_id))
+                if insert_data:
+                    cursor.executemany("""
+                        INSERT INTO Johnny_doc (doc_id, doctype_id, doc_year, doc_number, store_by, store_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, insert_data)
+                
+                if update_data:
+                    cursor.executemany("""
+                        UPDATE Johnny_doc 
+                        SET store_at = ?, store_by = ? 
+                        WHERE doc_id = ?
+                    """, update_data)
+                
+                conn.commit()
+                return created_docs
+                
+            except Exception as e:
+                last_error = e
+                sqlstate = e.args[0] if e.args and isinstance(e.args[0], str) else ''
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+                if sqlstate in RETRYABLE_STATES and attempt < 2:
+                    import time
+                    time.sleep(1 * (attempt + 1))
                 else:
-                    insert_data.append((doc_id, doctype_id, doc_year, doc_number, store_by, get_current_datetime()))
-                
-                created_docs.append(doc_id)
-            
-            # Bulk insert new documents
-            if insert_data:
-                cursor.executemany("""
-                    INSERT INTO Johnny_doc (doc_id, doctype_id, doc_year, doc_number, store_by, store_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, insert_data)
-            
-            # Bulk update existing documents
-            if update_data:
-                cursor.executemany("""
-                    UPDATE Johnny_doc 
-                    SET store_at = ?, store_by = ? 
-                    WHERE doc_id = ?
-                """, update_data)
-            
-            conn.commit()
-            return created_docs
-            
-        except Exception as e:
-            conn.rollback()
-            raise e
-        finally:
-            cursor.close()
-            conn.close()
+                    raise e
+            finally:
+                cursor.close()
+                conn.close()
+
+        raise last_error
 
     @classmethod
     def get_document_detail(cls):
@@ -540,57 +550,74 @@ class DocInBox:
         created_entries = []
         errors = []
         
+        RETRYABLE_STATES = {'08S01', '08001', '08003', '08007', 'HYT00', 'HYT01'}
+
         try:
             for doc_data in documents_data:
-                try:
-                    # Check if document already exists
-                    cursor.execute("SELECT * FROM Johnny_docInBox WHERE doc_id = ?", (doc_data['doc_id'],))
-                    row = cursor.fetchone()
-                    
-                    if row:
-                        row_dict = dict(zip([column[0] for column in cursor.description], row))
-                        if row_dict["is_removed"] == 1:
-                            # Reactivate the document
+                retries = 3
+                for attempt in range(retries):
+                    try:
+                        # Check if document already exists
+                        cursor.execute("SELECT * FROM Johnny_docInBox WHERE doc_id = ?", (doc_data['doc_id'],))
+                        row = cursor.fetchone()
+                        
+                        if row:
+                            row_dict = dict(zip([column[0] for column in cursor.description], row))
+                            if row_dict["is_removed"] == 1:
+                                cursor.execute("""
+                                    UPDATE Johnny_docInBox
+                                    SET is_removed = 0
+                                    WHERE doc_id = ? AND box_id = ?
+                                """, (doc_data['doc_id'], box_id))
+                                conn.commit()
+                                created_entries.append({
+                                    'id': doc_data['id'],
+                                    'doc_id': doc_data['doc_id'],
+                                    'box_id': box_id,
+                                    'status': 'reactivated'
+                                })
+                            else:
+                                errors.append({
+                                    'doc_id': doc_data['doc_id'],
+                                    'error': f"เอกสารเลขนี้ {doc_data['doc_id']} มีอยู่ในกล่อง {row_dict['box_id']} แล้ว"
+                                })
+                        else:
                             cursor.execute("""
-                                UPDATE Johnny_docInBox
-                                SET is_removed = 0
-                                WHERE doc_id = ? AND box_id = ?
-                            """, (doc_data['doc_id'], box_id))
+                                INSERT INTO Johnny_docInBox (id, doc_id, box_id, is_removed)
+                                VALUES (?, ?, ?, ?)
+                            """, (doc_data['id'], doc_data['doc_id'], box_id, 0))
                             conn.commit()
                             created_entries.append({
                                 'id': doc_data['id'],
                                 'doc_id': doc_data['doc_id'],
                                 'box_id': box_id,
-                                'status': 'reactivated'
+                                'status': 'created'
                             })
+                        break  # success, exit retry loop
+
+                    except Exception as e:
+                        sqlstate = e.args[0] if e.args and isinstance(e.args[0], str) else ''
+                        if sqlstate in RETRYABLE_STATES and attempt < retries - 1:
+                            # Reconnect and retry
+                            try:
+                                cursor.close()
+                                conn.close()
+                            except Exception:
+                                pass
+                            import time
+                            time.sleep(1 * (attempt + 1))
+                            conn = get_db_connection()
+                            cursor = conn.cursor()
                         else:
                             errors.append({
                                 'doc_id': doc_data['doc_id'],
-                                'error': f"เอกสารเลขนี้ {doc_data['doc_id']} มีอยู่ในกล่อง {row_dict['box_id']} แล้ว"
+                                'error': str(e)
                             })
-                    else:
-                        # Create new entry
-                        cursor.execute("""
-                            INSERT INTO Johnny_docInBox (id, doc_id, box_id, is_removed)
-                            VALUES (?, ?, ?, ?)
-                        """, (doc_data['id'], doc_data['doc_id'], box_id, 0))
-                        conn.commit()
-                        created_entries.append({
-                            'id': doc_data['id'],
-                            'doc_id': doc_data['doc_id'],
-                            'box_id': box_id,
-                            'status': 'created'
-                        })
-                        
-                except Exception as e:
-                    errors.append({
-                        'doc_id': doc_data['doc_id'],
-                        'error': str(e)
-                    })
+                            break
                     
         except Exception as e:
             conn.rollback()
-            raise  # Re-raise the exception to be caught by the controller
+            raise
         finally:
             cursor.close()
             conn.close()
