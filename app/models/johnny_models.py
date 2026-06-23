@@ -394,7 +394,7 @@ class JohnnyDoc:
                 ,docinbox.box_id
                 ,box.box_year
                 ,box.boxtype_id
-                ,box.location
+                ,box.location_id
             FROM [dbo].[Johnny_doc] doc
             LEFT JOIN [dbo].[Johnny_docInBox] docinbox ON doc.doc_id = docinbox.doc_id
             LEFT JOIN [dbo].[Johnny_box] box ON docinbox.box_id = box.box_id
@@ -443,7 +443,7 @@ class JohnnyDoc:
                 ,docinbox.box_id
                 ,box.box_year
                 ,box.boxtype_id
-                ,box.location
+                ,box.location_id
             FROM [dbo].[Johnny_doc] doc
             LEFT JOIN [dbo].[Johnny_docInBox] docinbox ON doc.doc_id = docinbox.doc_id
             LEFT JOIN [dbo].[Johnny_box] box ON docinbox.box_id = box.box_id

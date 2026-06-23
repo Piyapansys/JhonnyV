@@ -28,8 +28,8 @@ def _is_retryable(error: pyodbc.Error) -> bool:
 def _make_connection() -> pyodbc.Connection:
     """Open a single raw pyodbc connection."""
     conn = pyodbc.connect(Config.SQL_SERVER_CONNECTION_STRING, timeout=30)
-    conn.setdecoding(pyodbc.SQL_CHAR, encoding='utf-8')
-    conn.setdecoding(pyodbc.SQL_WCHAR, encoding='utf-8')
+    conn.setdecoding(pyodbc.SQL_CHAR, encoding='cp874')
+    conn.setdecoding(pyodbc.SQL_WCHAR, encoding='utf-16')
     conn.setencoding(encoding='utf-8')
     return conn
 
