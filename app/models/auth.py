@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import jwt
 import uuid
+import os
 import pytz
 from app.db import get_db_connection
 from app.config import Config
@@ -13,11 +14,17 @@ def get_current_datetime():
 
 config = Config()
 
+def get_secret_key():
+    # Try env var first, fallback to config.ini
+    return os.getenv('SECRET_KEY') or get_secret_key()
+
 class AuthModel:
     @classmethod
     def generate_tokens(cls, user_email):
         """Generate access and refresh tokens for a user"""
         conn = get_db_connection()
+        if not conn:
+            raise Exception("Database connection failed")
         cursor = conn.cursor()
         try:
             # Check if user exists
@@ -48,13 +55,13 @@ class AuthModel:
             
             access_token = jwt.encode(
                 access_token_payload,
-                config.get('AUTH', 'SECRET_KEY'),
+                get_secret_key(),
                 algorithm='HS256'
             )
             
             refresh_token = jwt.encode(
                 refresh_token_payload,
-                config.get('AUTH', 'SECRET_KEY'),
+                get_secret_key(),
                 algorithm='HS256'
             )
             
@@ -79,7 +86,7 @@ class AuthModel:
             # Verify refresh token
             payload = jwt.decode(
                 refresh_token, 
-                config.get('AUTH', 'SECRET_KEY'),
+                get_secret_key(),
                 algorithms=['HS256']
             )
             
@@ -107,7 +114,7 @@ class AuthModel:
                 
                 access_token = jwt.encode(
                     access_token_payload,
-                    config.get('AUTH', 'SECRET_KEY'),
+                    get_secret_key(),
                     algorithm='HS256'
                 )
                 
@@ -136,7 +143,7 @@ class AuthModel:
             # Verify token signature and expiration
             payload = jwt.decode(
                 token, 
-                config.get('AUTH', 'SECRET_KEY'),
+                get_secret_key(),
                 algorithms=['HS256']
             )
             

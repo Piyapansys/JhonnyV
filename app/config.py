@@ -42,6 +42,12 @@ class Config:
             self.config.read(config_file)
 
     def get(self, section, option):
+        # Fallback to environment variables if config.ini is not available
+        if not self.config.has_option(section, option):
+            env_key = option.upper()
+            env_val = os.getenv(env_key)
+            if env_val:
+                return env_val
         return self.config.get(section, option)
 
     def getfloat(self, section, option):
